@@ -39,6 +39,10 @@
   transition: background-color 0.2s;
 }
 
+.chat-session:nth-child(even) {
+  background-color: #e8e8e8;
+}
+
 .chat-session:hover {
   background-color: #e0e0e0;
 }
@@ -60,8 +64,17 @@
   text-overflow: ellipsis;
 }
 
-.new-chat-button {
+.button-container {
+  display: flex;
+  gap: 10px;
   padding: 15px;
+  background-color: #f0f0f0;
+  border-top: 1px solid #ddd;
+}
+
+.new-chat-button {
+  flex: 1;
+  padding: 12px;
   background-color: #007AFF;
   color: white;
   border: none;
@@ -69,10 +82,29 @@
   font-size: 1em;
   font-weight: 500;
   transition: background-color 0.2s;
-  width: 100%;
+  border-radius: 6px;
 }
 
 .new-chat-button:hover {
+  background-color: #0056b3;
+}
+
+.config-button {
+  padding: 12px;
+  background-color: #007AFF;
+  color: white;
+  border: none;
+  cursor: pointer;
+  font-size: 1em;
+  transition: background-color 0.2s;
+  border-radius: 6px;
+  width: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.config-button:hover {
   background-color: #0056b3;
 }
 
@@ -170,15 +202,24 @@
     border-bottom-color: #3f3f3f;
   }
 
+  .chat-session:nth-child(even) {
+    background-color: #282828;
+  }
+
   .chat-session:hover, .chat-session.active {
     background-color: #2f2f2f;
   }
 
-  .new-chat-button {
+  .button-container {
+    background-color: #1f1f1f;
+    border-top-color: #3f3f3f;
+  }
+
+  .new-chat-button, .config-button {
     background-color: #0056b3;
   }
 
-  .new-chat-button:hover {
+  .new-chat-button:hover, .config-button:hover {
     background-color: #003d80;
   }
 

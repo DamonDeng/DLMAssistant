@@ -11,3 +11,11 @@ export interface ChatSession {
   preview: string;
   messages: Message[];
 }
+
+export interface Config {
+  id?: string;
+  awsRegion: string;
+  awsAccessKey: string;
+  awsSecretKey: string;
+  bedrockModel: string;
+}

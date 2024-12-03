@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, KeyboardEvent } from "react";
 import { initDB, getAllSessions, updateSession } from "./utils/db";
 import { ChatSession, Message } from "./types";
+import { ConfigPage } from "./components/ConfigPage";
 import "./App.css";
 
 function App() {
@@ -8,6 +9,7 @@ function App() {
   const [activeSession, setActiveSession] = useState<ChatSession | null>(null);
   const [newMessage, setNewMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [showConfig, setShowConfig] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -175,9 +177,14 @@ function App() {
             </div>
           ))}
         </div>
-        <button className="new-chat-button" onClick={createNewChat}>
-          New Chat
-        </button>
+        <div className="button-container">
+          <button className="new-chat-button" onClick={createNewChat}>
+            New Chat
+          </button>
+          <button className="config-button" onClick={() => setShowConfig(true)}>
+            ⚙️
+          </button>
+        </div>
       </div>
 
       <div className="main-chat">
@@ -209,6 +216,8 @@ function App() {
           <button type="submit">Send</button>
         </form>
       </div>
+
+      {showConfig && <ConfigPage onClose={() => setShowConfig(false)} />}
     </div>
   );
 }

@@ -1,0 +1,147 @@
+.config-page {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #f6f6f6;
+  z-index: 1000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.config-container {
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  width: 90%;
+  max-width: 600px;
+  padding: 20px;
+}
+
+.config-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #ddd;
+}
+
+.config-header h2 {
+  margin: 0;
+  color: #333;
+}
+
+.close-button {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #666;
+  padding: 5px 10px;
+}
+
+.close-button:hover {
+  color: #333;
+}
+
+.config-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-group label {
+  font-weight: 500;
+  color: #333;
+}
+
+.form-group input,
+.form-group select {
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: #007AFF;
+}
+
+.password-input {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.password-input input {
+  flex: 1;
+}
+
+.toggle-visibility {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 5px;
+  font-size: 16px;
+}
+
+.toggle-visibility:hover {
+  opacity: 0.8;
+}
+
+@media (prefers-color-scheme: dark) {
+  .config-page {
+    background-color: #2f2f2f;
+  }
+
+  .config-container {
+    background-color: #1f1f1f;
+  }
+
+  .config-header {
+    border-bottom-color: #3f3f3f;
+  }
+
+  .config-header h2 {
+    color: #f6f6f6;
+  }
+
+  .close-button {
+    color: #999;
+  }
+
+  .close-button:hover {
+    color: #f6f6f6;
+  }
+
+  .form-group label {
+    color: #f6f6f6;
+  }
+
+  .form-group input,
+  .form-group select {
+    background-color: #2f2f2f;
+    border-color: #3f3f3f;
+    color: #f6f6f6;
+  }
+
+  .form-group input:focus,
+  .form-group select:focus {
+    border-color: #0056b3;
+  }
+
+  .toggle-visibility {
+    color: #f6f6f6;
+  }
+}
