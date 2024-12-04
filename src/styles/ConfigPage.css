@@ -100,6 +100,32 @@
   opacity: 0.8;
 }
 
+/* Language section styles */
+.language-section {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #ddd;
+}
+
+.language-select {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  background-color: white;
+  cursor: pointer;
+}
+
+.language-select:hover {
+  border-color: #007AFF;
+}
+
+.language-select:focus {
+  outline: none;
+  border-color: #007AFF;
+}
+
 @media (prefers-color-scheme: dark) {
   .config-page {
     background-color: #2f2f2f;
@@ -130,18 +156,24 @@
   }
 
   .form-group input,
-  .form-group select {
+  .form-group select,
+  .language-select {
     background-color: #2f2f2f;
     border-color: #3f3f3f;
     color: #f6f6f6;
   }
 
   .form-group input:focus,
-  .form-group select:focus {
+  .form-group select:focus,
+  .language-select:focus {
     border-color: #0056b3;
   }
 
   .toggle-visibility {
     color: #f6f6f6;
+  }
+
+  .language-section {
+    border-top-color: #3f3f3f;
   }
 }

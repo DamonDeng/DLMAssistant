@@ -1,64 +1,49 @@
 import { useState, useEffect, useRef, KeyboardEvent } from "react";
-import { initDB, getAllSessions, updateSession } from "./utils/db";
-import { ChatSession, Message } from "./types";
+import { initDB, getAllSessions, updateSession, getConfig } from "./utils/db";
+import { ChatSession, Message, Config } from "./types";
 import { ConfigPage } from "./components/ConfigPage";
+import { LanguageProvider, useTranslation } from "./i18n/LanguageContext";
+import { BedrockClient } from "./services/bedrock";
 import "./App.css";
 
-function App() {
+function AppContent() {
+  const { t } = useTranslation();
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSession, setActiveSession] = useState<ChatSession | null>(null);
   const [newMessage, setNewMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [showConfig, setShowConfig] = useState(false);
+  const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const bedrockClientRef = useRef<BedrockClient | null>(null);
 
-  // Initialize database and load sessions
   useEffect(() => {
     const initializeDB = async () => {
       try {
         await initDB();
         const loadedSessions = await getAllSessions();
         if (loadedSessions.length === 0) {
-          // Add default sessions if none exist
+          var current_time_stamp_string = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
           const defaultSessions: ChatSession[] = [
             {
               id: 1,
-              title: "Project Discussion",
-              preview: "Let's review the latest updates",
+              title: "New Conversation",
+              preview: "new conversation",
               messages: [
-                { id: 1, content: "Hi, how's the project going?", sent: false, timestamp: "10:00 AM" },
-                { id: 2, content: "Going well! I've completed the first phase.", sent: true, timestamp: "10:02 AM" },
-                { id: 3, content: "That's great! Can you share the details?", sent: false, timestamp: "10:05 AM" },
-              ]
-            },
-            {
-              id: 2,
-              title: "Team Meeting",
-              preview: "Meeting scheduled for tomorrow",
-              messages: [
-                { id: 1, content: "Team meeting tomorrow at 2 PM", sent: false, timestamp: "09:00 AM" },
-                { id: 2, content: "I'll be there", sent: true, timestamp: "09:15 AM" },
-              ]
-            },
-            {
-              id: 3,
-              title: "Bug Reports",
-              preview: "New bug found in production",
-              messages: [
-                { id: 1, content: "We found a critical bug in production", sent: false, timestamp: "Yesterday" },
-                { id: 2, content: "I'll look into it right away", sent: true, timestamp: "Yesterday" },
-              ]
-            },
+                { id: 1, content: "Hello!", sent: false, timestamp: current_time_stamp_string },
+              ],
+              deleted: false
+            }
           ];
 
-          // Store default sessions
           await Promise.all(defaultSessions.map(session => updateSession(session)));
           setSessions(defaultSessions);
           setActiveSession(defaultSessions[0]);
         } else {
           setSessions(loadedSessions);
-          setActiveSession(loadedSessions[0]);
+          setActiveSession(loadedSessions.find(s => !s.deleted) || null);
         }
         setIsLoading(false);
       } catch (error) {
@@ -73,20 +58,42 @@ function App() {
   const createNewChat = async () => {
     try {
       const newSession: ChatSession = {
-        id: Date.now(), // Use timestamp as unique ID
-        title: `New Chat ${sessions.length + 1}`,
+        id: Date.now(),
+        title: t('newChat'),
         preview: "Start a new conversation",
-        messages: []
+        messages: [],
+        deleted: false
       };
 
-      // Store in IndexedDB
       await updateSession(newSession);
-
-      // Update state
       setSessions(prev => [...prev, newSession]);
       setActiveSession(newSession);
     } catch (error) {
       console.error('Failed to create new chat:', error);
+    }
+  };
+
+  const deleteSession = async (sessionId: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      const sessionToDelete = sessions.find(s => s.id === sessionId);
+      if (sessionToDelete) {
+        const updatedSession = { ...sessionToDelete, deleted: true };
+        await updateSession(updatedSession);
+        
+        const updatedSessions = sessions.map(s => 
+          s.id === sessionId ? updatedSession : s
+        );
+        
+        setSessions(updatedSessions);
+        
+        if (activeSession?.id === sessionId) {
+          const nextActiveSession = updatedSessions.find(s => !s.deleted && s.id !== sessionId);
+          setActiveSession(nextActiveSession || null);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to delete session:', error);
     }
   };
 
@@ -100,59 +107,87 @@ function App() {
 
   const handleSendMessage = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (!activeSession || newMessage.trim() === "") return;
+    if (!activeSession || newMessage.trim() === "" || isSending) return;
     
     try {
-      // Create new message
-      const newMessageObj: Message = {
+      setIsSending(true);
+      
+      const userMessage: Message = {
         id: activeSession.messages.length + 1,
         content: newMessage.trim(),
         sent: true,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
 
-      // Create updated session
+      const updatedMessages = [...activeSession.messages, userMessage];
+      
+      const config = await getConfig();
+      if (!config) {
+        throw new Error('Please configure AWS settings first');
+      }
+
+      if (!bedrockClientRef.current) {
+        bedrockClientRef.current = new BedrockClient(config);
+      }
+
+      const claudeResponse = await bedrockClientRef.current.sendMessage(config, updatedMessages);
+      
+      const assistantMessage: Message = {
+        id: updatedMessages.length + 1,
+        content: claudeResponse,
+        sent: false,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
+
+      const finalMessages = [...updatedMessages, assistantMessage];
+
       const updatedSession = {
         ...activeSession,
-        messages: [...activeSession.messages, newMessageObj],
+        messages: finalMessages,
         preview: newMessage.trim()
       };
 
-      // Update sessions array
       const updatedSessions = sessions.map(session =>
         session.id === activeSession.id ? updatedSession : session
       );
 
-      // Update IndexedDB
       await updateSession(updatedSession);
-
-      // Update state
       setSessions(updatedSessions);
       setActiveSession(updatedSession);
       setNewMessage("");
     } catch (error) {
       console.error('Failed to send message:', error);
+      alert(error instanceof Error ? error.message : 'Failed to send message');
+    } finally {
+      setIsSending(false);
     }
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter') {
       if (e.shiftKey) {
-        // Shift+Enter pressed - send message
         e.preventDefault();
         handleSendMessage();
       }
-      // Regular Enter - do nothing (default behavior will create new line)
     }
   };
 
-  // Adjust textarea height automatically
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
       textareaRef.current.style.height = textareaRef.current.scrollHeight + 'px';
     }
   }, [newMessage]);
+
+  useEffect(() => {
+    const updateBedrockClient = async () => {
+      const config = await getConfig();
+      if (config) {
+        bedrockClientRef.current = new BedrockClient(config);
+      }
+    };
+    updateBedrockClient();
+  }, [showConfig]);
 
   if (isLoading) {
     return <div className="loading">Loading...</div>;
@@ -162,24 +197,35 @@ function App() {
     return <div className="error">No chat sessions available</div>;
   }
 
+  const visibleSessions = sessions.filter(session => !session.deleted);
+
   return (
     <div className="container">
       <div className="sidebar">
         <div className="chat-sessions">
-          {sessions.map((session) => (
+          {visibleSessions.map((session) => (
             <div
               key={session.id}
               className={`chat-session ${activeSession.id === session.id ? 'active' : ''}`}
               onClick={() => setActiveSession(session)}
             >
-              <div className="chat-session-title">{session.title}</div>
-              <div className="chat-session-preview">{session.preview}</div>
+              <div className="chat-session-content">
+                <div className="chat-session-title">{session.title}</div>
+                <div className="chat-session-preview">{session.preview}</div>
+              </div>
+              <button 
+                className="delete-session-button"
+                onClick={(e) => deleteSession(session.id, e)}
+                title="Delete session"
+              >
+                ×
+              </button>
             </div>
           ))}
         </div>
         <div className="button-container">
           <button className="new-chat-button" onClick={createNewChat}>
-            New Chat
+            {t('newChat')}
           </button>
           <button className="config-button" onClick={() => setShowConfig(true)}>
             ⚙️
@@ -201,6 +247,11 @@ function App() {
               {message.content}
             </div>
           ))}
+          {isSending && (
+            <div className="message received">
+              Thinking...
+            </div>
+          )}
           <div ref={messagesEndRef} />
         </div>
 
@@ -212,13 +263,22 @@ function App() {
             onKeyDown={handleKeyDown}
             placeholder="Type a message... (Shift+Enter to send)"
             rows={1}
+            disabled={isSending}
           />
-          <button type="submit">Send</button>
+          <button type="submit" disabled={isSending}>Send</button>
         </form>
       </div>
 
       {showConfig && <ConfigPage onClose={() => setShowConfig(false)} />}
     </div>
+  );
+}
+
+function App() {
+  return (
+    <LanguageProvider>
+      <AppContent />
+    </LanguageProvider>
   );
 }
 
