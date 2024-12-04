@@ -24,26 +24,28 @@ function AppContent() {
         await initDB();
         const loadedSessions = await getAllSessions();
         if (loadedSessions.length === 0) {
-          var current_time_stamp_string = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          //do nothing if no sessions
+          // var current_time_stamp_string = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-          const defaultSessions: ChatSession[] = [
-            {
-              id: 1,
-              title: "New Conversation",
-              preview: "new conversation",
-              messages: [
-                { id: 1, content: "Hello!", sent: false, timestamp: current_time_stamp_string },
-              ],
-              deleted: false
-            }
-          ];
+          // const defaultSessions: ChatSession[] = [
+          //   {
+          //     id: 1,
+          //     title: "New Conversation",
+          //     preview: "new conversation",
+          //     messages: [
+          //       { id: 1, content: "Hello!", sent: false, timestamp: current_time_stamp_string },
+          //     ],
+          //     deleted: false
+          //   }
+          // ];
 
-          await Promise.all(defaultSessions.map(session => updateSession(session)));
-          setSessions(defaultSessions);
-          setActiveSession(defaultSessions[0]);
+          // await Promise.all(defaultSessions.map(session => updateSession(session)));
+          // setSessions(defaultSessions);
+          // setActiveSession(defaultSessions[0]);
         } else {
+          const activeSessions = loadedSessions.filter(s => !s.deleted);
           setSessions(loadedSessions);
-          setActiveSession(loadedSessions.find(s => !s.deleted) || null);
+          setActiveSession(activeSessions.length > 0 ? activeSessions[0] : null);
         }
         setIsLoading(false);
       } catch (error) {
@@ -193,10 +195,6 @@ function AppContent() {
     return <div className="loading">Loading...</div>;
   }
 
-  if (!activeSession) {
-    return <div className="error">No chat sessions available</div>;
-  }
-
   const visibleSessions = sessions.filter(session => !session.deleted);
 
   return (
@@ -206,7 +204,7 @@ function AppContent() {
           {visibleSessions.map((session) => (
             <div
               key={session.id}
-              className={`chat-session ${activeSession.id === session.id ? 'active' : ''}`}
+              className={`chat-session ${activeSession?.id === session.id ? 'active' : ''}`}
               onClick={() => setActiveSession(session)}
             >
               <div className="chat-session-content">
@@ -234,39 +232,47 @@ function AppContent() {
       </div>
 
       <div className="main-chat">
-        <div className="chat-header">
-          <h2>{activeSession.title}</h2>
-        </div>
-
-        <div className="chat-messages">
-          {activeSession.messages.map((message) => (
-            <div
-              key={message.id}
-              className={`message ${message.sent ? 'sent' : 'received'}`}
-            >
-              {message.content}
+        {activeSession ? (
+          <>
+            <div className="chat-header">
+              <h2>{activeSession.title}</h2>
             </div>
-          ))}
-          {isSending && (
-            <div className="message received">
-              Thinking...
-            </div>
-          )}
-          <div ref={messagesEndRef} />
-        </div>
 
-        <form className="chat-input" onSubmit={handleSendMessage}>
-          <textarea
-            ref={textareaRef}
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Type a message... (Shift+Enter to send)"
-            rows={1}
-            disabled={isSending}
-          />
-          <button type="submit" disabled={isSending}>Send</button>
-        </form>
+            <div className="chat-messages">
+              {activeSession.messages.map((message) => (
+                <div
+                  key={message.id}
+                  className={`message ${message.sent ? 'sent' : 'received'}`}
+                >
+                  {message.content}
+                </div>
+              ))}
+              {isSending && (
+                <div className="message received">
+                  Thinking...
+                </div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+
+            <form className="chat-input" onSubmit={handleSendMessage}>
+              <textarea
+                ref={textareaRef}
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Type a message... (Shift+Enter to send)"
+                rows={1}
+                disabled={isSending}
+              />
+              <button type="submit" disabled={isSending}>Send</button>
+            </form>
+          </>
+        ) : (
+          <div className="empty-chat">
+            <p>{t('newChat')}</p>
+          </div>
+        )}
       </div>
 
       {showConfig && <ConfigPage onClose={() => setShowConfig(false)} />}
