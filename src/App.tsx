@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, KeyboardEvent } from "react";
 import { initDB, getAllSessions, updateSession, getConfig } from "./utils/db";
-import { ChatSession, Message, Config } from "./types";
+import { ChatSession, ChatMessage, Config, ContentBlock, TextContentBlock } from "./types";
 import { ConfigPage } from "./components/ConfigPage";
 import { LanguageProvider, useTranslation } from "./i18n/LanguageContext";
 import { BedrockClient } from "./services/bedrock";
@@ -25,26 +25,34 @@ function AppContent() {
         const loadedSessions = await getAllSessions();
         if (loadedSessions.length === 0) {
           //do nothing if no sessions
-          // var current_time_stamp_string = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-          // const defaultSessions: ChatSession[] = [
-          //   {
-          //     id: 1,
-          //     title: "New Conversation",
-          //     preview: "new conversation",
-          //     messages: [
-          //       { id: 1, content: "Hello!", sent: false, timestamp: current_time_stamp_string },
-          //     ],
-          //     deleted: false
-          //   }
-          // ];
-
-          // await Promise.all(defaultSessions.map(session => updateSession(session)));
-          // setSessions(defaultSessions);
-          // setActiveSession(defaultSessions[0]);
         } else {
-          const activeSessions = loadedSessions.filter(s => !s.deleted);
-          setSessions(loadedSessions);
+          // Convert legacy messages if needed
+          const convertedSessions = loadedSessions.map(session => ({
+            ...session,
+            messages: session.messages.map((msg: any): ChatMessage => {
+              // Handle legacy message format
+              if (typeof msg.content === 'string' || msg.legacy_content) {
+                const textContent = typeof msg.content === 'string' ? msg.content : msg.legacy_content || '';
+                return {
+                  id: msg.id,
+                  role: msg.role === 'user' ? 'user' : 'assistant',
+                  dlm_message_type: 'chat',
+                  content: [{
+                    type: 'text' as const,
+                    text: textContent
+                  }],
+                  timestamp: typeof msg.timestamp === 'string' ? Date.now() : msg.timestamp,
+                  legacy_content: textContent,
+                  legacy_content_type: msg.legacy_content_type
+                };
+              }
+              // Message is already in new format
+              return msg as ChatMessage;
+            })
+          }));
+          
+          const activeSessions = convertedSessions.filter(s => !s.deleted);
+          setSessions(convertedSessions);
           setActiveSession(activeSessions.length > 0 ? activeSessions[0] : null);
         }
         setIsLoading(false);
@@ -114,11 +122,15 @@ function AppContent() {
     try {
       setIsSending(true);
       
-      const userMessage: Message = {
+      const userMessage: ChatMessage = {
         id: activeSession.messages.length + 1,
-        content: newMessage.trim(),
-        sent: true,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        role: 'user',
+        dlm_message_type: 'chat',
+        content: [{
+          type: 'text',
+          text: newMessage.trim()
+        }],
+        timestamp: Date.now()
       };
 
       const updatedMessages = [...activeSession.messages, userMessage];
@@ -132,20 +144,40 @@ function AppContent() {
         bedrockClientRef.current = new BedrockClient(config);
       }
 
-      const claudeResponse = await bedrockClientRef.current.sendMessage(config, updatedMessages);
-      
-      const assistantMessage: Message = {
-        id: updatedMessages.length + 1,
-        content: claudeResponse,
-        sent: false,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      };
+      try {
+        const claudeResponse = await bedrockClientRef.current.sendMessage(config, updatedMessages);
+        
+        const assistantMessage: ChatMessage = {
+          id: updatedMessages.length + 1,
+          role: 'assistant',
+          dlm_message_type: 'chat',
+          content: [{
+            type: 'text',
+            text: claudeResponse
+          }],
+          timestamp: Date.now()
+        };
 
-      const finalMessages = [...updatedMessages, assistantMessage];
+        updatedMessages.push(assistantMessage);
+      } catch (error) {
+        // Create an error message in the chat with the actual service error
+        const errorMessage: ChatMessage = {
+          id: updatedMessages.length + 1,
+          role: 'assistant',
+          dlm_message_type: 'error',
+          content: [{
+            type: 'text',
+            text: error instanceof Error ? error.message : 'An unexpected error occurred'
+          }],
+          timestamp: Date.now()
+        };
+
+        updatedMessages.push(errorMessage);
+      }
 
       const updatedSession = {
         ...activeSession,
-        messages: finalMessages,
+        messages: updatedMessages,
         preview: newMessage.trim()
       };
 
@@ -159,7 +191,6 @@ function AppContent() {
       setNewMessage("");
     } catch (error) {
       console.error('Failed to send message:', error);
-      alert(error instanceof Error ? error.message : 'Failed to send message');
     } finally {
       setIsSending(false);
     }
@@ -190,6 +221,50 @@ function AppContent() {
     };
     updateBedrockClient();
   }, [showConfig]);
+
+  const renderMessage = (message: ChatMessage) => {
+    const isError = message.dlm_message_type === 'error';
+    
+    if (isError && message.content[0]?.type === 'text') {
+      return (
+        <div key={message.id} className="message received error">
+          <div className="error-content">{message.content[0].text}</div>
+        </div>
+      );
+    }
+
+    return (
+      <div
+        key={message.id}
+        className={`message ${message.role === 'user' ? 'sent' : 'received'}`}
+      >
+        {message.content.map((block, index) => (
+          <div key={index}>{renderContentBlock(block)}</div>
+        ))}
+      </div>
+    );
+  };
+
+  const renderContentBlock = (block: ContentBlock) => {
+    switch (block.type) {
+      case 'text':
+        return block.text;
+      case 'image':
+        return '[Image]';
+      case 'document':
+        return `[Document: ${block.document.name}]`;
+      case 'video':
+        return '[Video]';
+      case 'toolUse':
+        return `[Tool Use: ${block.toolUse.name}]`;
+      case 'toolResult':
+        return `[Tool Result: ${block.toolResult.status}]`;
+      case 'guardContent':
+        return block.guardContent.text.text;
+      default:
+        return '[Unsupported Content]';
+    }
+  };
 
   if (isLoading) {
     return <div className="loading">Loading...</div>;
@@ -239,14 +314,7 @@ function AppContent() {
             </div>
 
             <div className="chat-messages">
-              {activeSession.messages.map((message) => (
-                <div
-                  key={message.id}
-                  className={`message ${message.sent ? 'sent' : 'received'}`}
-                >
-                  {message.content}
-                </div>
-              ))}
+              {activeSession.messages.map(renderMessage)}
               {isSending && (
                 <div className="message received">
                   Thinking...

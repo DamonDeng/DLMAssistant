@@ -172,6 +172,37 @@
   color: black;
 }
 
+.message.error {
+  align-self: flex-start;
+  background-color: #f8d7da;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  max-width: 70%;
+}
+
+.error-label {
+  display: block;
+  padding: 8px 15px;
+  background-color: #dc3545;
+  color: white;
+  font-weight: 500;
+  font-size: 0.9em;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.error-content {
+  padding: 15px;
+  background-color: #495057;
+  color: white;
+  font-family: system-ui, -apple-system, sans-serif;
+  white-space: pre-wrap;
+  margin: 0;
+  line-height: 1.0;
+}
+
 .chat-input {
   padding: 20px;
   border-top: 1px solid #e0e0e0;
@@ -216,7 +247,6 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 100vh;
   font-size: 1.2em;
   color: #dc3545;
 }
