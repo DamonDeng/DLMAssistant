@@ -59,10 +59,21 @@ export class BedrockClient {
 
     const lastMessage = request.messages[request.messages.length - 1];
     const convertedContent = lastMessage.content.map(block => {
-      if (block.type === 'text') {
-        return { text: block.text };
+      switch (block.type) {
+        case 'text':
+          return { text: block.text };
+        case 'image':
+          return {
+            image: {
+              format: block.image.format,
+              source: {
+                bytes: block.image.source.bytes
+              }
+            }
+          };
+        default:
+          return { text: '[Unsupported content type]' };
       }
-      return { text: '[Unsupported content type]' };
     });
 
     const input = {
@@ -103,10 +114,21 @@ export class BedrockClient {
 
     const lastMessage = request.messages[request.messages.length - 1];
     const convertedContent = lastMessage.content.map(block => {
-      if (block.type === 'text') {
-        return { text: block.text };
+      switch (block.type) {
+        case 'text':
+          return { text: block.text };
+        case 'image':
+          return {
+            image: {
+              format: block.image.format,
+              source: {
+                bytes: block.image.source.bytes
+              }
+            }
+          };
+        default:
+          return { text: '[Unsupported content type]' };
       }
-      return { text: '[Unsupported content type]' };
     });
 
     const input = {

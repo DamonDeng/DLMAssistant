@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, KeyboardEvent } from "react";
 import { initDB, getAllSessions, updateSession, getConfig } from "./utils/db";
-import { ChatSession, ChatMessage, Config, ContentBlock, TextContentBlock } from "./types";
+import { ChatSession, ChatMessage, Config, ContentBlock, TextContentBlock, ImageContentBlock } from "./types";
 import { ConfigPage } from "./components/ConfigPage";
 import { LanguageProvider, useTranslation } from "./i18n/LanguageContext";
 import { BedrockClient } from "./services/bedrock";
@@ -16,7 +16,9 @@ function AppContent() {
   const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const bedrockClientRef = useRef<BedrockClient | null>(null);
+  const [messageBlocks, setMessageBlocks] = useState<ContentBlock[]>([]);
 
   useEffect(() => {
     const initializeDB = async () => {
@@ -115,21 +117,68 @@ function AppContent() {
     scrollToBottom();
   }, [activeSession?.messages]);
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Check if file is an image
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file');
+      return;
+    }
+
+    try {
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        const arrayBuffer = event.target?.result as ArrayBuffer;
+        const uint8Array = new Uint8Array(arrayBuffer);
+
+        const imageBlock: ImageContentBlock = {
+          type: 'image',
+          image: {
+            format: file.type.split('/')[1] as 'png' | 'jpeg' | 'gif' | 'webp',
+            source: {
+              bytes: uint8Array
+            }
+          }
+        };
+
+        // Store image data in sessionStorage
+        const imageKey = `image_${Date.now()}`;
+        sessionStorage.setItem(imageKey, JSON.stringify({
+          format: imageBlock.image.format,
+          data: Array.from(uint8Array)
+        }));
+
+        setMessageBlocks(prev => [...prev, imageBlock]);
+      };
+      reader.readAsArrayBuffer(file);
+    } catch (error) {
+      console.error('Failed to process image:', error);
+      alert('Failed to process image');
+    }
+  };
+
   const handleSendMessage = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (!activeSession || newMessage.trim() === "" || isSending) return;
+    if (!activeSession || (!newMessage.trim() && messageBlocks.length === 0) || isSending) return;
     
     try {
       setIsSending(true);
       
+      const content: ContentBlock[] = [
+        ...messageBlocks,
+        ...(newMessage.trim() ? [{
+          type: 'text' as const,
+          text: newMessage.trim()
+        }] : [])
+      ];
+
       const userMessage: ChatMessage = {
         id: activeSession.messages.length + 1,
         role: 'user',
         dlm_message_type: 'chat',
-        content: [{
-          type: 'text' as const,
-          text: newMessage.trim()
-        }],
+        content,
         timestamp: Date.now()
       };
 
@@ -163,10 +212,11 @@ function AppContent() {
       const updatedSession: ChatSession = {
         ...activeSession,
         messages: updatedMessages,
-        preview: newMessage.trim()
+        preview: newMessage.trim() || '[Image Message]'
       };
       setActiveSession(updatedSession);
       setNewMessage("");
+      setMessageBlocks([]);
 
       try {
         // Start streaming response
@@ -213,7 +263,7 @@ function AppContent() {
         const finalSession: ChatSession = {
           ...activeSession,
           messages: finalMessages,
-          preview: newMessage.trim()
+          preview: newMessage.trim() || '[Image Message]'
         };
 
         await updateSession(finalSession);
@@ -313,7 +363,11 @@ function AppContent() {
       case 'text':
         return block.text;
       case 'image':
-        return '[Image]';
+        const imageData = block.image.source.bytes;
+        const format = block.image.format;
+        const blob = new Blob([imageData], { type: `image/${format}` });
+        const imageUrl = URL.createObjectURL(blob);
+        return <img src={imageUrl} alt="User uploaded" className="message-image" />;
       case 'document':
         return `[Document: ${block.document.name}]`;
       case 'video':
@@ -387,6 +441,30 @@ function AppContent() {
             </div>
 
             <form className="chat-input" onSubmit={handleSendMessage}>
+              <div className="toolbar">
+                <button 
+                  type="button" 
+                  className="image-upload-button"
+                  onClick={() => fileInputRef.current?.click()}
+                  title="Upload image"
+                >
+                  📷
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  style={{ display: 'none' }}
+                />
+              </div>
+              <div className="message-preview">
+                {messageBlocks.map((block, index) => (
+                  <div key={index} className="preview-block">
+                    {renderContentBlock(block)}
+                  </div>
+                ))}
+              </div>
               <textarea
                 ref={textareaRef}
                 value={newMessage}
