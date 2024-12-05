@@ -57,31 +57,31 @@ export class BedrockClient {
   async converseModel(request: ConverseRequest): Promise<string> {
     console.log('request:', request);
 
-    const lastMessage = request.messages[request.messages.length - 1];
-    const convertedContent = lastMessage.content.map(block => {
-      switch (block.type) {
-        case 'text':
-          return { text: block.text };
-        case 'image':
-          return {
-            image: {
-              format: block.image.format,
-              source: {
-                bytes: block.image.source.bytes
+    // Convert all messages to Bedrock format
+    const convertedMessages = request.messages.map(msg => ({
+      role: msg.role,
+      content: msg.content.map(block => {
+        switch (block.type) {
+          case 'text':
+            return { text: block.text };
+          case 'image':
+            return {
+              image: {
+                format: block.image.format,
+                source: {
+                  bytes: block.image.source.bytes
+                }
               }
-            }
-          };
-        default:
-          return { text: '[Unsupported content type]' };
-      }
-    });
+            };
+          default:
+            return { text: '[Unsupported content type]' };
+        }
+      })
+    }));
 
     const input = {
       modelId: request.modelId,
-      messages: [{
-        role: lastMessage.role,
-        content: convertedContent
-      }],
+      messages: convertedMessages,
       ...(request.system && { system: request.system }),
       ...(request.inferenceConfig && { inferenceConfig: request.inferenceConfig })
     };
@@ -112,31 +112,31 @@ export class BedrockClient {
   async converseModelStreaming(request: ConverseRequest, onStream: StreamingCallback): Promise<string> {
     console.log('streaming request:', request);
 
-    const lastMessage = request.messages[request.messages.length - 1];
-    const convertedContent = lastMessage.content.map(block => {
-      switch (block.type) {
-        case 'text':
-          return { text: block.text };
-        case 'image':
-          return {
-            image: {
-              format: block.image.format,
-              source: {
-                bytes: block.image.source.bytes
+    // Convert all messages to Bedrock format
+    const convertedMessages = request.messages.map(msg => ({
+      role: msg.role,
+      content: msg.content.map(block => {
+        switch (block.type) {
+          case 'text':
+            return { text: block.text };
+          case 'image':
+            return {
+              image: {
+                format: block.image.format,
+                source: {
+                  bytes: block.image.source.bytes
+                }
               }
-            }
-          };
-        default:
-          return { text: '[Unsupported content type]' };
-      }
-    });
+            };
+          default:
+            return { text: '[Unsupported content type]' };
+        }
+      })
+    }));
 
     const input = {
       modelId: request.modelId,
-      messages: [{
-        role: lastMessage.role,
-        content: convertedContent
-      }],
+      messages: convertedMessages,
       ...(request.system && { system: request.system }),
       ...(request.inferenceConfig && { inferenceConfig: request.inferenceConfig }),
       stream: true
