@@ -127,7 +127,7 @@ function AppContent() {
         role: 'user',
         dlm_message_type: 'chat',
         content: [{
-          type: 'text',
+          type: 'text' as const,
           text: newMessage.trim()
         }],
         timestamp: Date.now()
@@ -144,51 +144,113 @@ function AppContent() {
         bedrockClientRef.current = new BedrockClient(config);
       }
 
+      // Create a placeholder message for streaming response
+      const assistantMessage: ChatMessage = {
+        id: updatedMessages.length + 1,
+        role: 'assistant',
+        dlm_message_type: 'chat',
+        content: [{
+          type: 'text' as const,
+          text: ''
+        }],
+        timestamp: Date.now(),
+        isStreaming: true
+      };
+
+      updatedMessages.push(assistantMessage);
+
+      // Update session with user message and empty assistant message
+      const updatedSession: ChatSession = {
+        ...activeSession,
+        messages: updatedMessages,
+        preview: newMessage.trim()
+      };
+      setActiveSession(updatedSession);
+      setNewMessage("");
+
       try {
-        const claudeResponse = await bedrockClientRef.current.sendMessage(config, updatedMessages);
-        
-        const assistantMessage: ChatMessage = {
-          id: updatedMessages.length + 1,
-          role: 'assistant',
-          dlm_message_type: 'chat',
-          content: [{
-            type: 'text',
-            text: claudeResponse
-          }],
-          timestamp: Date.now()
+        // Start streaming response
+        const finalResponse = await bedrockClientRef.current.sendMessage(
+          config, 
+          updatedMessages.slice(0, -1), // Exclude the empty assistant message
+          (chunk: string, done: boolean) => {
+            setActiveSession(prev => {
+              if (!prev) return prev;
+              const messages = [...prev.messages];
+              const lastMessage = messages[messages.length - 1];
+              if (lastMessage.role === 'assistant') {
+                const currentText = (lastMessage.content[0] as TextContentBlock).text;
+                const updatedMessage: ChatMessage = {
+                  ...lastMessage,
+                  content: [{
+                    type: 'text' as const,
+                    text: currentText + chunk
+                  }],
+                  isStreaming: !done
+                };
+                messages[messages.length - 1] = updatedMessage;
+              }
+              return {
+                ...prev,
+                messages
+              };
+            });
+          }
+        );
+
+        // Update session with final response
+        const finalMessages = updatedMessages.map(msg => 
+          msg.role === 'assistant' ? {
+            ...msg,
+            content: [{
+              type: 'text' as const,
+              text: finalResponse
+            }],
+            isStreaming: false
+          } : msg
+        );
+
+        const finalSession: ChatSession = {
+          ...activeSession,
+          messages: finalMessages,
+          preview: newMessage.trim()
         };
 
-        updatedMessages.push(assistantMessage);
+        await updateSession(finalSession);
+        setSessions(prev => 
+          prev.map(session =>
+            session.id === activeSession.id ? finalSession : session
+          )
+        );
+        setActiveSession(finalSession);
+
       } catch (error) {
-        // Create an error message in the chat with the actual service error
+        // Handle error in streaming
         const errorMessage: ChatMessage = {
           id: updatedMessages.length + 1,
           role: 'assistant',
           dlm_message_type: 'error',
           content: [{
-            type: 'text',
+            type: 'text' as const,
             text: error instanceof Error ? error.message : 'An unexpected error occurred'
           }],
           timestamp: Date.now()
         };
 
-        updatedMessages.push(errorMessage);
+        const errorSession: ChatSession = {
+          ...activeSession,
+          messages: [...updatedMessages.slice(0, -1), errorMessage]
+        };
+
+        await updateSession(errorSession);
+        setSessions(prev =>
+          prev.map(session =>
+            session.id === activeSession.id ? errorSession : session
+          )
+        );
+        setActiveSession(errorSession);
       }
 
-      const updatedSession = {
-        ...activeSession,
-        messages: updatedMessages,
-        preview: newMessage.trim()
-      };
-
-      const updatedSessions = sessions.map(session =>
-        session.id === activeSession.id ? updatedSession : session
-      );
-
-      await updateSession(updatedSession);
-      setSessions(updatedSessions);
-      setActiveSession(updatedSession);
-      setNewMessage("");
     } catch (error) {
       console.error('Failed to send message:', error);
     } finally {
@@ -236,11 +298,12 @@ function AppContent() {
     return (
       <div
         key={message.id}
-        className={`message ${message.role === 'user' ? 'sent' : 'received'}`}
+        className={`message ${message.role === 'user' ? 'sent' : 'received'} ${message.isStreaming ? 'streaming' : ''}`}
       >
         {message.content.map((block, index) => (
           <div key={index}>{renderContentBlock(block)}</div>
         ))}
+        {message.isStreaming && <span className="cursor"></span>}
       </div>
     );
   };
@@ -315,7 +378,7 @@ function AppContent() {
 
             <div className="chat-messages">
               {activeSession.messages.map(renderMessage)}
-              {isSending && (
+              {isSending && !activeSession.messages.some(m => m.isStreaming) && (
                 <div className="message received">
                   Thinking...
                 </div>

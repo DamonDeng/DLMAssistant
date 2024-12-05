@@ -96,6 +96,8 @@ export interface ChatMessage {
   // Legacy support
   legacy_content?: string;
   legacy_content_type?: string;
+  // For streaming support
+  isStreaming?: boolean;
 }
 
 export interface ChatSession {
@@ -175,3 +177,5 @@ export interface ConverseResponse {
     latencyMs: number;
   };
 }
+
+export type StreamingCallback = (text: string, done: boolean) => void;
