@@ -6,6 +6,11 @@ import { LanguageProvider, useTranslation } from "./i18n/LanguageContext";
 import { BedrockClient } from "./services/bedrock";
 import "./App.css";
 
+// Import icons
+import settingsIcon from "./assets/icons/settings.svg";
+import closeIcon from "./assets/icons/close.svg";
+import imageIcon from "./assets/icons/image.svg";
+
 function AppContent() {
   const { t } = useTranslation();
   const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -408,7 +413,7 @@ function AppContent() {
                 onClick={(e) => deleteSession(session.id, e)}
                 title="Delete session"
               >
-                ×
+                <img src={closeIcon} alt="Delete" className="icon" />
               </button>
             </div>
           ))}
@@ -418,7 +423,7 @@ function AppContent() {
             {t('newChat')}
           </button>
           <button className="config-button" onClick={() => setShowConfig(true)}>
-            ⚙️
+            <img src={settingsIcon} alt="Settings" className="icon" />
           </button>
         </div>
       </div>
@@ -448,7 +453,7 @@ function AppContent() {
                   onClick={() => fileInputRef.current?.click()}
                   title="Upload image"
                 >
-                  📷
+                  <img src={imageIcon} alt="Upload image" className="icon" />
                 </button>
                 <input
                   ref={fileInputRef}
