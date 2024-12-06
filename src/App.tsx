@@ -465,16 +465,18 @@ function AppContent() {
                   </div>
                 ))}
               </div>
-              <textarea
-                ref={textareaRef}
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Type a message... (Shift+Enter to send)"
-                rows={1}
-                disabled={isSending}
-              />
-              <button type="submit" disabled={isSending}>Send</button>
+              <div className="input-container">
+                <textarea
+                  ref={textareaRef}
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Type a message... (Shift+Enter to send)"
+                  rows={1}
+                  disabled={isSending}
+                />
+                <button type="submit" disabled={isSending}>Send</button>
+              </div>
             </form>
           </>
         ) : (
