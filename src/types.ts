@@ -88,7 +88,7 @@ export type ContentBlock =
   | GuardContentBlock;
 
 export interface ChatMessage {
-  id: number;
+  id: string; // Changed from number to string
   role: 'user' | 'assistant';
   dlm_message_type: 'error' | 'chat' | 'system';
   content: ContentBlock[];

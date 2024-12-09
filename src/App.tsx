@@ -4,12 +4,23 @@ import { ChatSession, ChatMessage, Config, ContentBlock, TextContentBlock, Image
 import { ConfigPage } from "./components/ConfigPage";
 import { LanguageProvider, useTranslation } from "./i18n/LanguageContext";
 import { BedrockClient } from "./services/bedrock";
+import { Markdown } from "./components/markdown";
+import { Avatar } from "./components/avatar";
+import { IconButton } from "./components/button";
+import { generateId } from "./utils/id";
 import "./App.css";
 
 // Import icons
 import settingsIcon from "./assets/icons/settings.svg";
 import closeIcon from "./assets/icons/close.svg";
 import imageIcon from "./assets/icons/image.svg";
+
+function createTextBlock(text: string): TextContentBlock {
+  return {
+    type: 'text',
+    text
+  };
+}
 
 function AppContent() {
   const { t } = useTranslation();
@@ -19,11 +30,12 @@ function AppContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [showConfig, setShowConfig] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [pendingImages, setPendingImages] = useState<ImageContentBlock[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const bedrockClientRef = useRef<BedrockClient | null>(null);
-  const [messageBlocks, setMessageBlocks] = useState<ContentBlock[]>([]);
+  const currentAssistantMessageId = useRef<string | null>(null);
 
   useEffect(() => {
     const initializeDB = async () => {
@@ -33,33 +45,8 @@ function AppContent() {
         if (loadedSessions.length === 0) {
           //do nothing if no sessions
         } else {
-          // Convert legacy messages if needed
-          const convertedSessions = loadedSessions.map(session => ({
-            ...session,
-            messages: session.messages.map((msg: any): ChatMessage => {
-              // Handle legacy message format
-              if (typeof msg.content === 'string' || msg.legacy_content) {
-                const textContent = typeof msg.content === 'string' ? msg.content : msg.legacy_content || '';
-                return {
-                  id: msg.id,
-                  role: msg.role === 'user' ? 'user' : 'assistant',
-                  dlm_message_type: 'chat',
-                  content: [{
-                    type: 'text' as const,
-                    text: textContent
-                  }],
-                  timestamp: typeof msg.timestamp === 'string' ? Date.now() : msg.timestamp,
-                  legacy_content: textContent,
-                  legacy_content_type: msg.legacy_content_type
-                };
-              }
-              // Message is already in new format
-              return msg as ChatMessage;
-            })
-          }));
-          
-          const activeSessions = convertedSessions.filter(s => !s.deleted);
-          setSessions(convertedSessions);
+          const activeSessions = loadedSessions.filter(s => !s.deleted);
+          setSessions(loadedSessions);
           setActiveSession(activeSessions.length > 0 ? activeSessions[0] : null);
         }
         setIsLoading(false);
@@ -71,6 +58,42 @@ function AppContent() {
 
     initializeDB();
   }, []);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Check if file is an image
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file');
+      return;
+    }
+
+    try {
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        const arrayBuffer = event.target?.result as ArrayBuffer;
+        const uint8Array = new Uint8Array(arrayBuffer);
+
+        const imageBlock: ImageContentBlock = {
+          type: 'image',
+          image: {
+            format: file.type.split('/')[1] as 'png' | 'jpeg' | 'gif' | 'webp',
+            source: {
+              bytes: uint8Array
+            }
+          }
+        };
+
+        // Add image to pending images
+        setPendingImages(prev => [...prev, imageBlock]);
+      };
+      reader.readAsArrayBuffer(file);
+    } catch (error) {
+      console.error('Failed to process image:', error);
+      alert('Failed to process image');
+    }
+  };
 
   const createNewChat = async () => {
     try {
@@ -90,7 +113,7 @@ function AppContent() {
     }
   };
 
-  const deleteSession = async (sessionId: number, e: React.MouseEvent) => {
+  const deleteSession = async (sessionId: number, e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
     try {
       const sessionToDelete = sessions.find(s => s.id === sessionId);
@@ -122,68 +145,24 @@ function AppContent() {
     scrollToBottom();
   }, [activeSession?.messages]);
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Check if file is an image
-    if (!file.type.startsWith('image/')) {
-      alert('Please select an image file');
-      return;
-    }
-
-    try {
-      const reader = new FileReader();
-      reader.onload = async (event) => {
-        const arrayBuffer = event.target?.result as ArrayBuffer;
-        const uint8Array = new Uint8Array(arrayBuffer);
-
-        const imageBlock: ImageContentBlock = {
-          type: 'image',
-          image: {
-            format: file.type.split('/')[1] as 'png' | 'jpeg' | 'gif' | 'webp',
-            source: {
-              bytes: uint8Array
-            }
-          }
-        };
-
-        // Store image data in sessionStorage
-        const imageKey = `image_${Date.now()}`;
-        sessionStorage.setItem(imageKey, JSON.stringify({
-          format: imageBlock.image.format,
-          data: Array.from(uint8Array)
-        }));
-
-        setMessageBlocks(prev => [...prev, imageBlock]);
-      };
-      reader.readAsArrayBuffer(file);
-    } catch (error) {
-      console.error('Failed to process image:', error);
-      alert('Failed to process image');
-    }
-  };
-
   const handleSendMessage = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (!activeSession || (!newMessage.trim() && messageBlocks.length === 0) || isSending) return;
+    if (!activeSession || (!newMessage.trim() && pendingImages.length === 0) || isSending) return;
     
     try {
       setIsSending(true);
       
-      const content: ContentBlock[] = [
-        ...messageBlocks,
-        ...(newMessage.trim() ? [{
-          type: 'text' as const,
-          text: newMessage.trim()
-        }] : [])
+      // Combine text and images into content blocks
+      const contentBlocks: ContentBlock[] = [
+        ...pendingImages,
+        ...(newMessage.trim() ? [createTextBlock(newMessage.trim())] : [])
       ];
 
       const userMessage: ChatMessage = {
-        id: activeSession.messages.length + 1,
+        id: generateId(),
         role: 'user',
         dlm_message_type: 'chat',
-        content,
+        content: contentBlocks,
         timestamp: Date.now()
       };
 
@@ -199,14 +178,14 @@ function AppContent() {
       }
 
       // Create a placeholder message for streaming response
+      const assistantMessageId = generateId();
+      currentAssistantMessageId.current = assistantMessageId;
+      
       const assistantMessage: ChatMessage = {
-        id: updatedMessages.length + 1,
+        id: assistantMessageId,
         role: 'assistant',
         dlm_message_type: 'chat',
-        content: [{
-          type: 'text' as const,
-          text: ''
-        }],
+        content: [createTextBlock('')],
         timestamp: Date.now(),
         isStreaming: true
       };
@@ -221,29 +200,25 @@ function AppContent() {
       };
       setActiveSession(updatedSession);
       setNewMessage("");
-      setMessageBlocks([]);
+      setPendingImages([]); // Clear pending images after sending
 
       try {
         // Start streaming response
         const finalResponse = await bedrockClientRef.current.sendMessage(
           config, 
-          updatedMessages.slice(0, -1), // Exclude the empty assistant message
+          updatedMessages.slice(0, -1),
           (chunk: string, done: boolean) => {
             setActiveSession(prev => {
               if (!prev) return prev;
               const messages = [...prev.messages];
-              const lastMessage = messages[messages.length - 1];
-              if (lastMessage.role === 'assistant') {
-                const currentText = (lastMessage.content[0] as TextContentBlock).text;
-                const updatedMessage: ChatMessage = {
-                  ...lastMessage,
-                  content: [{
-                    type: 'text' as const,
-                    text: currentText + chunk
-                  }],
+              const messageIndex = messages.findIndex(m => m.id === currentAssistantMessageId.current);
+              if (messageIndex !== -1) {
+                const message = messages[messageIndex];
+                messages[messageIndex] = {
+                  ...message,
+                  content: [createTextBlock((message.content[0] as TextContentBlock).text + chunk)],
                   isStreaming: !done
                 };
-                messages[messages.length - 1] = updatedMessage;
               }
               return {
                 ...prev,
@@ -255,12 +230,9 @@ function AppContent() {
 
         // Update session with final response
         const finalMessages = updatedMessages.map(msg => 
-          msg.role === 'assistant' ? {
+          msg.id === assistantMessageId ? {
             ...msg,
-            content: [{
-              type: 'text' as const,
-              text: finalResponse
-            }],
+            content: [createTextBlock(finalResponse)],
             isStreaming: false
           } : msg
         );
@@ -282,13 +254,10 @@ function AppContent() {
       } catch (error) {
         // Handle error in streaming
         const errorMessage: ChatMessage = {
-          id: updatedMessages.length + 1,
+          id: generateId(),
           role: 'assistant',
           dlm_message_type: 'error',
-          content: [{
-            type: 'text' as const,
-            text: error instanceof Error ? error.message : 'An unexpected error occurred'
-          }],
+          content: [createTextBlock(error instanceof Error ? error.message : 'An unexpected error occurred')],
           timestamp: Date.now()
         };
 
@@ -310,15 +279,14 @@ function AppContent() {
       console.error('Failed to send message:', error);
     } finally {
       setIsSending(false);
+      currentAssistantMessageId.current = null;
     }
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter') {
-      if (e.shiftKey) {
-        e.preventDefault();
-        handleSendMessage();
-      }
+    if (e.key === 'Enter' && e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
     }
   };
 
@@ -338,55 +306,6 @@ function AppContent() {
     };
     updateBedrockClient();
   }, [showConfig]);
-
-  const renderMessage = (message: ChatMessage) => {
-    const isError = message.dlm_message_type === 'error';
-    
-    if (isError && message.content[0]?.type === 'text') {
-      return (
-        <div key={message.id} className="message received error">
-          <div className="error-content">{message.content[0].text}</div>
-        </div>
-      );
-    }
-
-    return (
-      <div
-        key={message.id}
-        className={`message ${message.role === 'user' ? 'sent' : 'received'} ${message.isStreaming ? 'streaming' : ''}`}
-      >
-        {message.content.map((block, index) => (
-          <div key={index}>{renderContentBlock(block)}</div>
-        ))}
-        {message.isStreaming && <span className="cursor"></span>}
-      </div>
-    );
-  };
-
-  const renderContentBlock = (block: ContentBlock) => {
-    switch (block.type) {
-      case 'text':
-        return block.text;
-      case 'image':
-        const imageData = block.image.source.bytes;
-        const format = block.image.format;
-        const blob = new Blob([imageData], { type: `image/${format}` });
-        const imageUrl = URL.createObjectURL(blob);
-        return <img src={imageUrl} alt="User uploaded" className="message-image" />;
-      case 'document':
-        return `[Document: ${block.document.name}]`;
-      case 'video':
-        return '[Video]';
-      case 'toolUse':
-        return `[Tool Use: ${block.toolUse.name}]`;
-      case 'toolResult':
-        return `[Tool Result: ${block.toolResult.status}]`;
-      case 'guardContent':
-        return block.guardContent.text.text;
-      default:
-        return '[Unsupported Content]';
-    }
-  };
 
   if (isLoading) {
     return <div className="loading">Loading...</div>;
@@ -408,13 +327,11 @@ function AppContent() {
                 <div className="chat-session-title">{session.title}</div>
                 <div className="chat-session-preview">{session.preview}</div>
               </div>
-              <button 
-                className="delete-session-button"
+              <IconButton
+                icon={<img src={closeIcon} alt="Delete" className="icon" />}
                 onClick={(e) => deleteSession(session.id, e)}
                 title="Delete session"
-              >
-                <img src={closeIcon} alt="Delete" className="icon" />
-              </button>
+              />
             </div>
           ))}
         </div>
@@ -422,9 +339,11 @@ function AppContent() {
           <button className="new-chat-button" onClick={createNewChat}>
             {t('newChat')}
           </button>
-          <button className="config-button" onClick={() => setShowConfig(true)}>
-            <img src={settingsIcon} alt="Settings" className="icon" />
-          </button>
+          <IconButton
+            icon={<img src={settingsIcon} alt="Settings" className="icon" />}
+            onClick={() => setShowConfig(true)}
+            title="Settings"
+          />
         </div>
       </div>
 
@@ -436,10 +355,37 @@ function AppContent() {
             </div>
 
             <div className="chat-messages">
-              {activeSession.messages.map(renderMessage)}
+              {activeSession.messages.map((message) => (
+                <div
+                  key={message.id}
+                  className={`message ${message.role === 'user' ? 'sent' : 'received'} ${
+                    message.isStreaming ? 'streaming' : ''
+                  } ${message.dlm_message_type === 'error' ? 'error' : ''}`}
+                >
+                  <Avatar isBot={message.role === 'assistant'} />
+                  <div className="message-content">
+                    {message.content.map((block, index) => (
+                      <div key={index}>
+                        {block.type === 'text' ? (
+                          <Markdown content={(block as TextContentBlock).text} />
+                        ) : block.type === 'image' ? (
+                          <img 
+                            src={URL.createObjectURL(new Blob([(block as ImageContentBlock).image.source.bytes], 
+                            { type: `image/${(block as ImageContentBlock).image.format}` }))} 
+                            alt="Uploaded" 
+                            className="message-image" 
+                          />
+                        ) : null}
+                      </div>
+                    ))}
+                    {message.isStreaming && <span className="cursor" />}
+                  </div>
+                </div>
+              ))}
               {isSending && !activeSession.messages.some(m => m.isStreaming) && (
                 <div className="message received">
-                  Thinking...
+                  <Avatar isBot />
+                  <div className="message-content">Thinking...</div>
                 </div>
               )}
               <div ref={messagesEndRef} />
@@ -447,14 +393,11 @@ function AppContent() {
 
             <form className="chat-input" onSubmit={handleSendMessage}>
               <div className="toolbar">
-                <button 
-                  type="button" 
-                  className="image-upload-button"
+                <IconButton
+                  icon={<img src={imageIcon} alt="Upload" className="icon" />}
                   onClick={() => fileInputRef.current?.click()}
                   title="Upload image"
-                >
-                  <img src={imageIcon} alt="Upload image" className="icon" />
-                </button>
+                />
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -463,13 +406,26 @@ function AppContent() {
                   style={{ display: 'none' }}
                 />
               </div>
-              <div className="message-preview">
-                {messageBlocks.map((block, index) => (
-                  <div key={index} className="preview-block">
-                    {renderContentBlock(block)}
-                  </div>
-                ))}
-              </div>
+              {pendingImages.length > 0 && (
+                <div className="message-preview">
+                  {pendingImages.map((image, index) => (
+                    <div key={index} className="preview-block">
+                      <img 
+                        src={URL.createObjectURL(new Blob([image.image.source.bytes], 
+                        { type: `image/${image.image.format}` }))} 
+                        alt="Preview" 
+                        className="message-image" 
+                      />
+                      <button 
+                        className="remove-image" 
+                        onClick={() => setPendingImages(prev => prev.filter((_, i) => i !== index))}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
               <div className="input-container">
                 <textarea
                   ref={textareaRef}
@@ -480,7 +436,12 @@ function AppContent() {
                   rows={1}
                   disabled={isSending}
                 />
-                <button type="submit" disabled={isSending}>Send</button>
+                <button 
+                  type="submit" 
+                  disabled={isSending || (!newMessage.trim() && pendingImages.length === 0)}
+                >
+                  Send
+                </button>
               </div>
             </form>
           </>
