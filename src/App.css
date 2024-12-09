@@ -29,9 +29,7 @@
   margin-bottom: 8px;
   border-radius: 10px;
   cursor: pointer;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
+  position: relative;
   background-color: #f9f9f9;
   border: 1px solid transparent;
   transition: all 0.3s ease;
@@ -48,10 +46,8 @@
 }
 
 .chat-session-content {
-  flex-grow: 1;
-  margin-right: 12px;
-  min-width: 0; /* Important for text truncation */
-  width: calc(100% - 32px); /* Account for delete button width */
+  width: 100%;
+  min-width: 0;
 }
 
 .chat-session-title {
@@ -61,6 +57,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  padding-right: 24px;
 }
 
 .chat-session-preview {
@@ -70,25 +67,41 @@
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 100%;
-  display: block; /* Ensures the element takes full width */
+  display: block;
+  padding-right: 24px;
 }
 
-.delete-session-button {
+/* Delete button styling */
+.chat-session .delete-button {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 2px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
   background: none;
   border: none;
-  color: #999;
   cursor: pointer;
-  padding: 4px;
-  opacity: 0.6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 4px;
-  transition: all 0.3s ease;
-  flex-shrink: 0; /* Prevent button from shrinking */
-  width: 28px; /* Fixed width for consistency */
+  width: 20px;
+  height: 20px;
 }
 
-.delete-session-button:hover {
+.chat-session:hover .delete-button {
+  opacity: 0.6;
+}
+
+.chat-session .delete-button:hover {
   opacity: 1;
-  background-color: #f0f0f0;
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.chat-session .delete-button .icon {
+  width: 14px;
+  height: 14px;
 }
 
 .button-container {
@@ -362,13 +375,6 @@
   font-size: 1.2em;
   color: #374151;
   z-index: 1000;
-}
-
-.icon {
-  display: block;
-  width: 20px;
-  height: 20px;
-  object-fit: contain;
 }
 
 /* Message Actions */

@@ -347,6 +347,8 @@ function AppContent() {
                 icon={<img src={closeIcon} alt="Delete" className="icon" />}
                 onClick={(e) => deleteSession(session.id, e)}
                 title="Delete session"
+                useDefaultStyles={false}
+                className="delete-button"
               />
             </div>
           ))}

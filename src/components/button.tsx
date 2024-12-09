@@ -3,60 +3,6 @@ import React, { CSSProperties } from "react";
 // Button Types
 export type ButtonType = "primary" | "danger" | null;
 
-// Styles
-const styles: Record<string, CSSProperties> = {
-  iconButton: {
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: "8px 16px",
-    borderRadius: "8px",
-    border: "none",
-    cursor: "pointer",
-    transition: "all 0.2s ease",
-    gap: "8px",
-    fontSize: "14px",
-    fontWeight: 500,
-    backgroundColor: "transparent",
-  },
-
-  primary: {
-    backgroundColor: "#2563eb",
-    color: "white",
-  },
-
-  danger: {
-    backgroundColor: "#dc2626",
-    color: "white",
-  },
-
-  border: {
-    border: "1px solid #e5e7eb",
-  },
-
-  shadow: {
-    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-  },
-
-  disabled: {
-    opacity: 0.6,
-    cursor: "not-allowed",
-    pointerEvents: "none" as const,
-  },
-
-  iconButtonIcon: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    width: "20px",
-    height: "20px",
-  },
-
-  iconButtonText: {
-    lineHeight: 1.2,
-  },
-};
-
 // IconButton Component
 export interface IconButtonProps {
   onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
@@ -70,24 +16,47 @@ export interface IconButtonProps {
   disabled?: boolean;
   tabIndex?: number;
   autoFocus?: boolean;
+  useDefaultStyles?: boolean;
 }
 
 export function IconButton(props: IconButtonProps) {
-  // Combine styles based on props
-  const buttonStyle: CSSProperties = {
-    ...styles.iconButton,
-    ...(props.type === "primary" && styles.primary),
-    ...(props.type === "danger" && styles.danger),
-    ...(props.bordered && styles.border),
-    ...(props.shadow && styles.shadow),
-    ...(props.disabled && styles.disabled),
-  };
+  const {
+    useDefaultStyles = true,
+    className = "",
+    ...otherProps
+  } = props;
+
+  // Only apply default styles if useDefaultStyles is true
+  const buttonStyle: CSSProperties | undefined = useDefaultStyles ? {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "8px 16px",
+    borderRadius: "8px",
+    border: "none",
+    cursor: "pointer",
+    transition: "all 0.2s ease",
+    gap: "8px",
+    fontSize: "14px",
+    fontWeight: 500,
+    backgroundColor: props.type === "primary" ? "#2563eb" : 
+                    props.type === "danger" ? "#dc2626" : 
+                    "transparent",
+    color: props.type === "primary" || props.type === "danger" ? "white" : "inherit",
+    ...(props.bordered && { border: "1px solid #e5e7eb" }),
+    ...(props.shadow && { boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)" }),
+    ...(props.disabled && {
+      opacity: 0.6,
+      cursor: "not-allowed",
+      pointerEvents: "none"
+    })
+  } : undefined;
 
   const classes = [
     "icon-button",
     props.type && `icon-button-${props.type}`,
     props.bordered && "icon-button-bordered",
-    props.className,
+    className
   ]
     .filter(Boolean)
     .join(" ");
@@ -104,13 +73,12 @@ export function IconButton(props: IconButtonProps) {
       className={classes}
     >
       {props.icon && (
-        <div style={styles.iconButtonIcon}>
+        <div className="icon-button-icon">
           {props.icon}
         </div>
       )}
-
       {props.text && (
-        <div style={styles.iconButtonText}>
+        <div className="icon-button-text">
           {props.text}
         </div>
       )}
