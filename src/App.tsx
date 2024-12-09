@@ -145,6 +145,12 @@ function AppContent() {
     scrollToBottom();
   }, [activeSession?.messages]);
 
+  const focusTextarea = () => {
+    if (textareaRef.current) {
+      textareaRef.current.focus();
+    }
+  };
+
   const handleSendMessage = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!activeSession || (!newMessage.trim() && pendingImages.length === 0) || isSending) return;
@@ -251,6 +257,9 @@ function AppContent() {
         );
         setActiveSession(finalSession);
 
+        // Focus the textarea after successful response
+        setTimeout(focusTextarea, 100);
+
       } catch (error) {
         // Handle error in streaming
         const errorMessage: ChatMessage = {
@@ -306,6 +315,13 @@ function AppContent() {
     };
     updateBedrockClient();
   }, [showConfig]);
+
+  // Focus textarea when component mounts or when a new chat is created
+  useEffect(() => {
+    if (activeSession && textareaRef.current) {
+      focusTextarea();
+    }
+  }, [activeSession]);
 
   if (isLoading) {
     return <div className="loading">Loading...</div>;
