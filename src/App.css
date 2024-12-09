@@ -50,12 +50,17 @@
 .chat-session-content {
   flex-grow: 1;
   margin-right: 12px;
+  min-width: 0; /* Important for text truncation */
+  width: calc(100% - 32px); /* Account for delete button width */
 }
 
 .chat-session-title {
   font-weight: 600;
   margin-bottom: 4px;
   color: #1a1a1a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .chat-session-preview {
@@ -64,6 +69,8 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  max-width: 100%;
+  display: block; /* Ensures the element takes full width */
 }
 
 .delete-session-button {
@@ -75,6 +82,8 @@
   opacity: 0.6;
   border-radius: 4px;
   transition: all 0.3s ease;
+  flex-shrink: 0; /* Prevent button from shrinking */
+  width: 28px; /* Fixed width for consistency */
 }
 
 .delete-session-button:hover {
