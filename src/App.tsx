@@ -59,6 +59,11 @@ function AppContent() {
     initializeDB();
   }, []);
 
+  const handleImageButtonClick = (e: React.MouseEvent) => {
+    e.preventDefault(); // Prevent any form submission
+    fileInputRef.current?.click();
+  };
+
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -409,11 +414,11 @@ function AppContent() {
               <div ref={messagesEndRef} />
             </div>
 
-            <form className="chat-input" onSubmit={handleSendMessage}>
+            <div className="chat-input-wrapper">
               <div className="toolbar">
                 <IconButton
                   icon={<img src={imageIcon} alt="Upload" className="icon" />}
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={handleImageButtonClick}
                   title="Upload image"
                 />
                 <input
@@ -424,6 +429,7 @@ function AppContent() {
                   style={{ display: 'none' }}
                 />
               </div>
+              
               {pendingImages.length > 0 && (
                 <div className="message-preview">
                   {pendingImages.map((image, index) => (
@@ -435,6 +441,7 @@ function AppContent() {
                         className="message-image" 
                       />
                       <button 
+                        type="button"
                         className="remove-image" 
                         onClick={() => setPendingImages(prev => prev.filter((_, i) => i !== index))}
                       >
@@ -444,24 +451,27 @@ function AppContent() {
                   ))}
                 </div>
               )}
-              <div className="input-container">
-                <textarea
-                  ref={textareaRef}
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Type a message... (Shift+Enter to send)"
-                  rows={1}
-                  disabled={isSending}
-                />
-                <button 
-                  type="submit" 
-                  disabled={isSending || (!newMessage.trim() && pendingImages.length === 0)}
-                >
-                  Send
-                </button>
-              </div>
-            </form>
+
+              <form className="chat-input" onSubmit={handleSendMessage}>
+                <div className="input-container">
+                  <textarea
+                    ref={textareaRef}
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Type a message... (Shift+Enter to send)"
+                    rows={1}
+                    disabled={isSending}
+                  />
+                  <button 
+                    type="submit" 
+                    disabled={isSending || (!newMessage.trim() && pendingImages.length === 0)}
+                  >
+                    Send
+                  </button>
+                </div>
+              </form>
+            </div>
           </>
         ) : (
           <div className="empty-chat">
