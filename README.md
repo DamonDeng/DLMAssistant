@@ -1,7 +1,18 @@
-# Tauri + React + Typescript
+# DLMAssistant
 
-This template should help get you started developing with Tauri, React and Typescript in Vite.
+An AI-powered Chat Application for Amazon Bedrock. This application provides a user-friendly interface to interact with various AI models available through Amazon Bedrock service.
 
-## Recommended IDE Setup
+## Description
 
-- [VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+DLMAssistant is a modern chat application that leverages Amazon Bedrock's foundation models to provide intelligent conversational capabilities. The application offers a clean, intuitive interface for interacting with AI models.
+
+## Features
+
+- Integration with Amazon Bedrock AI models
+- Modern and responsive user interface
+- Real-time chat interactions
+- Support for multiple conversation threads
+
+## License
+
+This project is licensed under the MIT-0 License - see the [LICENSE](LICENSE) file for details.
