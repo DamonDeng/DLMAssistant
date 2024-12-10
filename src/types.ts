@@ -88,7 +88,7 @@ export type ContentBlock =
   | GuardContentBlock;
 
 export interface ChatMessage {
-  id: string; // Changed from number to string
+  id: string;
   role: 'user' | 'assistant';
   dlm_message_type: 'error' | 'chat' | 'system';
   content: ContentBlock[];
@@ -106,6 +106,7 @@ export interface ChatSession {
   preview: string;
   messages: ChatMessage[];
   deleted?: boolean;
+  isTemporary?: boolean; // New flag to mark temporary sessions
 }
 
 export interface Config {

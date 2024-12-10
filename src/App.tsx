@@ -22,6 +22,17 @@ function createTextBlock(text: string): TextContentBlock {
   };
 }
 
+function createEmptySession(): ChatSession {
+  return {
+    id: Date.now(),
+    title: 'New Chat',
+    preview: "Start a new conversation",
+    messages: [],
+    deleted: false,
+    isTemporary: true // New flag to mark temporary sessions
+  };
+}
+
 function AppContent() {
   const { t } = useTranslation();
   const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -42,13 +53,12 @@ function AppContent() {
       try {
         await initDB();
         const loadedSessions = await getAllSessions();
-        if (loadedSessions.length === 0) {
-          //do nothing if no sessions
-        } else {
-          const activeSessions = loadedSessions.filter(s => !s.deleted);
-          setSessions(loadedSessions);
-          setActiveSession(activeSessions.length > 0 ? activeSessions[0] : null);
-        }
+        setSessions(loadedSessions.filter(s => !s.deleted));
+        
+        // Create a temporary new chat session
+        const tempSession = createEmptySession();
+        setActiveSession(tempSession);
+        
         setIsLoading(false);
       } catch (error) {
         console.error('Failed to initialize database:', error);
@@ -60,7 +70,7 @@ function AppContent() {
   }, []);
 
   const handleImageButtonClick = (e: React.MouseEvent) => {
-    e.preventDefault(); // Prevent any form submission
+    e.preventDefault();
     fileInputRef.current?.click();
   };
 
@@ -68,7 +78,6 @@ function AppContent() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Check if file is an image
     if (!file.type.startsWith('image/')) {
       alert('Please select an image file');
       return;
@@ -90,7 +99,6 @@ function AppContent() {
           }
         };
 
-        // Add image to pending images
         setPendingImages(prev => [...prev, imageBlock]);
       };
       reader.readAsArrayBuffer(file);
@@ -101,21 +109,9 @@ function AppContent() {
   };
 
   const createNewChat = async () => {
-    try {
-      const newSession: ChatSession = {
-        id: Date.now(),
-        title: t('newChat'),
-        preview: "Start a new conversation",
-        messages: [],
-        deleted: false
-      };
-
-      await updateSession(newSession);
-      setSessions(prev => [...prev, newSession]);
-      setActiveSession(newSession);
-    } catch (error) {
-      console.error('Failed to create new chat:', error);
-    }
+    // Create a temporary new chat session without saving to database
+    const tempSession = createEmptySession();
+    setActiveSession(tempSession);
   };
 
   const deleteSession = async (sessionId: number, e: React.MouseEvent<HTMLButtonElement>) => {
@@ -130,15 +126,25 @@ function AppContent() {
           s.id === sessionId ? updatedSession : s
         );
         
-        setSessions(updatedSessions);
+        setSessions(updatedSessions.filter(s => !s.deleted));
         
         if (activeSession?.id === sessionId) {
-          const nextActiveSession = updatedSessions.find(s => !s.deleted && s.id !== sessionId);
-          setActiveSession(nextActiveSession || null);
+          // Create a new temporary session when active session is deleted
+          const tempSession = createEmptySession();
+          setActiveSession(tempSession);
         }
       }
     } catch (error) {
       console.error('Failed to delete session:', error);
+    }
+  };
+
+  const handleSessionClick = (session: ChatSession) => {
+    // If current session is temporary and has no messages, just discard it
+    if (activeSession?.isTemporary && activeSession.messages.length === 0) {
+      setActiveSession(session);
+    } else {
+      setActiveSession(session);
     }
   };
 
@@ -163,7 +169,10 @@ function AppContent() {
     try {
       setIsSending(true);
       
-      // Combine text and images into content blocks
+      // If this is the first message in a temporary session, prepare it for saving
+      const isFirstMessage = activeSession.isTemporary && activeSession.messages.length === 0;
+      const sessionToUse = isFirstMessage ? { ...activeSession, isTemporary: false } : activeSession;
+      
       const contentBlocks: ContentBlock[] = [
         ...pendingImages,
         ...(newMessage.trim() ? [createTextBlock(newMessage.trim())] : [])
@@ -177,7 +186,7 @@ function AppContent() {
         timestamp: Date.now()
       };
 
-      const updatedMessages = [...activeSession.messages, userMessage];
+      const updatedMessages = [...sessionToUse.messages, userMessage];
       
       const config = await getConfig();
       if (!config) {
@@ -188,7 +197,6 @@ function AppContent() {
         bedrockClientRef.current = new BedrockClient(config);
       }
 
-      // Create a placeholder message for streaming response
       const assistantMessageId = generateId();
       currentAssistantMessageId.current = assistantMessageId;
       
@@ -203,18 +211,22 @@ function AppContent() {
 
       updatedMessages.push(assistantMessage);
 
-      // Update session with user message and empty assistant message
       const updatedSession: ChatSession = {
-        ...activeSession,
+        ...sessionToUse,
         messages: updatedMessages,
         preview: newMessage.trim() || '[Image Message]'
       };
+
+      // If this is the first message, add the session to the list
+      if (isFirstMessage) {
+        setSessions(prev => [...prev, updatedSession]);
+      }
+      
       setActiveSession(updatedSession);
       setNewMessage("");
-      setPendingImages([]); // Clear pending images after sending
+      setPendingImages([]);
 
       try {
-        // Start streaming response
         const finalResponse = await bedrockClientRef.current.sendMessage(
           config, 
           updatedMessages.slice(0, -1),
@@ -239,7 +251,6 @@ function AppContent() {
           }
         );
 
-        // Update session with final response
         const finalMessages = updatedMessages.map(msg => 
           msg.id === assistantMessageId ? {
             ...msg,
@@ -249,7 +260,7 @@ function AppContent() {
         );
 
         const finalSession: ChatSession = {
-          ...activeSession,
+          ...updatedSession,
           messages: finalMessages,
           preview: newMessage.trim() || '[Image Message]'
         };
@@ -257,16 +268,14 @@ function AppContent() {
         await updateSession(finalSession);
         setSessions(prev => 
           prev.map(session =>
-            session.id === activeSession.id ? finalSession : session
+            session.id === updatedSession.id ? finalSession : session
           )
         );
         setActiveSession(finalSession);
 
-        // Focus the textarea after successful response
         setTimeout(focusTextarea, 100);
 
       } catch (error) {
-        // Handle error in streaming
         const errorMessage: ChatMessage = {
           id: generateId(),
           role: 'assistant',
@@ -276,14 +285,14 @@ function AppContent() {
         };
 
         const errorSession: ChatSession = {
-          ...activeSession,
+          ...updatedSession,
           messages: [...updatedMessages.slice(0, -1), errorMessage]
         };
 
         await updateSession(errorSession);
         setSessions(prev =>
           prev.map(session =>
-            session.id === activeSession.id ? errorSession : session
+            session.id === updatedSession.id ? errorSession : session
           )
         );
         setActiveSession(errorSession);
@@ -321,7 +330,6 @@ function AppContent() {
     updateBedrockClient();
   }, [showConfig]);
 
-  // Focus textarea when component mounts or when a new chat is created
   useEffect(() => {
     if (activeSession && textareaRef.current) {
       focusTextarea();
@@ -332,7 +340,7 @@ function AppContent() {
     return <div className="loading">Loading...</div>;
   }
 
-  const visibleSessions = sessions.filter(session => !session.deleted);
+  const visibleSessions = [...sessions].reverse();
 
   return (
     <div className="container">
@@ -342,7 +350,7 @@ function AppContent() {
             <div
               key={session.id}
               className={`chat-session ${activeSession?.id === session.id ? 'active' : ''}`}
-              onClick={() => setActiveSession(session)}
+              onClick={() => handleSessionClick(session)}
             >
               <div className="chat-session-content">
                 <div className="chat-session-title">{session.title}</div>
