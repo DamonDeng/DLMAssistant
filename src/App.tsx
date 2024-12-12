@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, KeyboardEvent } from "react";
 import { initDB, getAllSessions, updateSession, getConfig } from "./utils/db";
-import { ChatSession, ChatMessage, Config, ContentBlock, TextContentBlock, ImageContentBlock } from "./types";
+import { ChatSession, ChatMessage, Config, ContentBlock, TextContentBlock, ImageContentBlock, DocumentContentBlock } from "./types";
 import { ConfigPage } from "./components/ConfigPage";
 import { LanguageProvider, useTranslation } from "./i18n/LanguageContext";
 import { BedrockClient } from "./services/bedrock";
@@ -14,6 +14,42 @@ import "./App.css";
 import settingsIcon from "./assets/icons/settings.svg";
 import closeIcon from "./assets/icons/close.svg";
 import imageIcon from "./assets/icons/image.svg";
+import documentIcon from "./assets/icons/document.svg";
+
+// SHA1 calculation function
+async function calculateSHA1(str: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(str);
+  const hashBuffer = await crypto.subtle.digest('SHA-1', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  return hashHex;
+}
+
+// Utility function for file conversion
+function convertFileToBytes(file: File): Promise<number[]> {
+  return new Promise((resolve, reject) => {
+    try {
+      const reader = new FileReader();
+      const fileByteArray: number[] = [];
+      
+      reader.readAsArrayBuffer(file);
+      reader.onloadend = (event) => {
+        if (event.target?.readyState === 2) {
+          const arrayBuffer = event.target.result as ArrayBuffer;
+          const array = new Uint8Array(arrayBuffer);
+          for (const byte of array) {
+            fileByteArray.push(byte);
+          }
+          resolve(fileByteArray);
+        }
+      };
+      reader.onerror = () => reject(reader.error);
+    } catch (e) {
+      reject(e);
+    }
+  });
+}
 
 function createTextBlock(text: string): TextContentBlock {
   return {
@@ -29,7 +65,7 @@ function createEmptySession(): ChatSession {
     preview: "Start a new conversation",
     messages: [],
     deleted: false,
-    isTemporary: true // New flag to mark temporary sessions
+    isTemporary: true
   };
 }
 
@@ -42,9 +78,11 @@ function AppContent() {
   const [showConfig, setShowConfig] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [pendingImages, setPendingImages] = useState<ImageContentBlock[]>([]);
+  const [pendingDocuments, setPendingDocuments] = useState<DocumentContentBlock[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const documentInputRef = useRef<HTMLInputElement>(null);
   const bedrockClientRef = useRef<BedrockClient | null>(null);
   const currentAssistantMessageId = useRef<string | null>(null);
 
@@ -55,7 +93,6 @@ function AppContent() {
         const loadedSessions = await getAllSessions();
         setSessions(loadedSessions.filter(s => !s.deleted));
         
-        // Create a temporary new chat session
         const tempSession = createEmptySession();
         setActiveSession(tempSession);
         
@@ -71,7 +108,12 @@ function AppContent() {
 
   const handleImageButtonClick = (e: React.MouseEvent) => {
     e.preventDefault();
-    fileInputRef.current?.click();
+    imageInputRef.current?.click();
+  };
+
+  const handleDocumentButtonClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    documentInputRef.current?.click();
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -84,32 +126,61 @@ function AppContent() {
     }
 
     try {
-      const reader = new FileReader();
-      reader.onload = async (event) => {
-        const arrayBuffer = event.target?.result as ArrayBuffer;
-        const uint8Array = new Uint8Array(arrayBuffer);
-
-        const imageBlock: ImageContentBlock = {
-          type: 'image',
-          image: {
-            format: file.type.split('/')[1] as 'png' | 'jpeg' | 'gif' | 'webp',
-            source: {
-              bytes: uint8Array
-            }
+      const bytes = await convertFileToBytes(file);
+      const imageBlock: ImageContentBlock = {
+        type: 'image',
+        image: {
+          format: file.type.split('/')[1] as 'png' | 'jpeg' | 'gif' | 'webp',
+          source: {
+            bytes
           }
-        };
-
-        setPendingImages(prev => [...prev, imageBlock]);
+        }
       };
-      reader.readAsArrayBuffer(file);
+
+      setPendingImages(prev => [...prev, imageBlock]);
     } catch (error) {
       console.error('Failed to process image:', error);
       alert('Failed to process image');
     }
   };
 
+  const handleDocumentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const supportedFormats = ['pdf', 'csv', 'doc', 'docx', 'xls', 'xlsx', 'txt', 'md'] as const;
+    const fileExt = file.name.split('.').pop()?.toLowerCase();
+    
+    if (!fileExt || !supportedFormats.includes(fileExt as typeof supportedFormats[number])) {
+      alert('Please select a supported document format (PDF, CSV, DOC, DOCX, XLS, XLSX, TXT, MD)');
+      return;
+    }
+
+    try {
+      const bytes = await convertFileToBytes(file);
+      const fileName = file.name.split(".")[0].replace(" ","");
+      const sha1Hash = await calculateSHA1(fileName);
+
+      const documentBlock: DocumentContentBlock = {
+        type: 'document',
+        document: {
+          name: sha1Hash,
+          format: fileExt as DocumentContentBlock['document']['format'],
+          size: file.size,
+          source: {
+            bytes
+          }
+        }
+      };
+
+      setPendingDocuments(prev => [...prev, documentBlock]);
+    } catch (error) {
+      console.error('Failed to process document:', error);
+      alert('Failed to process document');
+    }
+  };
+
   const createNewChat = async () => {
-    // Create a temporary new chat session without saving to database
     const tempSession = createEmptySession();
     setActiveSession(tempSession);
   };
@@ -129,7 +200,6 @@ function AppContent() {
         setSessions(updatedSessions.filter(s => !s.deleted));
         
         if (activeSession?.id === sessionId) {
-          // Create a new temporary session when active session is deleted
           const tempSession = createEmptySession();
           setActiveSession(tempSession);
         }
@@ -140,7 +210,6 @@ function AppContent() {
   };
 
   const handleSessionClick = (session: ChatSession) => {
-    // If current session is temporary and has no messages, just discard it
     if (activeSession?.isTemporary && activeSession.messages.length === 0) {
       setActiveSession(session);
     } else {
@@ -182,16 +251,16 @@ function AppContent() {
 
   const handleSendMessage = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (!activeSession || (!newMessage.trim() && pendingImages.length === 0) || isSending) return;
+    if (!activeSession || (!newMessage.trim() && pendingImages.length === 0 && pendingDocuments.length === 0) || isSending) return;
     
     try {
       setIsSending(true);
       
-      // If this is the first message in a temporary session, prepare it for saving
       const isFirstMessage = activeSession.isTemporary && activeSession.messages.length === 0;
       const sessionToUse = isFirstMessage ? { ...activeSession, isTemporary: false } : activeSession;
       
       const contentBlocks: ContentBlock[] = [
+        ...pendingDocuments,  // Put documents first in the content blocks
         ...pendingImages,
         ...(newMessage.trim() ? [createTextBlock(newMessage.trim())] : [])
       ];
@@ -232,10 +301,9 @@ function AppContent() {
       const updatedSession: ChatSession = {
         ...sessionToUse,
         messages: updatedMessages,
-        preview: newMessage.trim() || '[Image Message]'
+        preview: newMessage.trim() || '[File Message]'
       };
 
-      // If this is the first message, add the session to the list
       if (isFirstMessage) {
         setSessions(prev => [...prev, updatedSession]);
       }
@@ -243,6 +311,7 @@ function AppContent() {
       setActiveSession(updatedSession);
       setNewMessage("");
       setPendingImages([]);
+      setPendingDocuments([]);
 
       try {
         const finalResponse = await bedrockClientRef.current.sendMessage(
@@ -280,7 +349,7 @@ function AppContent() {
         const finalSession: ChatSession = {
           ...updatedSession,
           messages: finalMessages,
-          preview: newMessage.trim() || '[Image Message]'
+          preview: newMessage.trim() || '[File Message]'
         };
 
         await updateSession(finalSession);
@@ -291,7 +360,6 @@ function AppContent() {
         );
         setActiveSession(finalSession);
 
-        // Generate topic after successful message exchange
         await updateSessionTitle(finalSession);
 
         setTimeout(focusTextarea, 100);
@@ -357,6 +425,29 @@ function AppContent() {
     }
   }, [activeSession]);
 
+  const renderBlock = (block: ContentBlock) => {
+    if (block.type === 'text') {
+      return <Markdown content={(block as TextContentBlock).text} />;
+    } else if (block.type === 'image') {
+      const imageBlock = block as ImageContentBlock;
+      return (
+        <img 
+          src={URL.createObjectURL(new Blob([new Uint8Array(imageBlock.image.source.bytes)], 
+          { type: `image/${imageBlock.image.format}` }))} 
+          alt="Uploaded" 
+          className="message-image" 
+        />
+      );
+    } else if (block.type === 'document') {
+      return (
+        <div className="document-block">
+          <span className="document-name">📄 {(block as DocumentContentBlock).document.name}</span>
+        </div>
+      );
+    }
+    return null;
+  };
+
   if (isLoading) {
     return <div className="loading">Loading...</div>;
   }
@@ -418,16 +509,7 @@ function AppContent() {
                   <div className="message-content">
                     {message.content.map((block, index) => (
                       <div key={index}>
-                        {block.type === 'text' ? (
-                          <Markdown content={(block as TextContentBlock).text} />
-                        ) : block.type === 'image' ? (
-                          <img 
-                            src={URL.createObjectURL(new Blob([(block as ImageContentBlock).image.source.bytes], 
-                            { type: `image/${(block as ImageContentBlock).image.format}` }))} 
-                            alt="Uploaded" 
-                            className="message-image" 
-                          />
-                        ) : null}
+                        {renderBlock(block)}
                       </div>
                     ))}
                     {message.isStreaming && <span className="cursor" />}
@@ -446,25 +528,37 @@ function AppContent() {
             <div className="chat-input-wrapper">
               <div className="toolbar">
                 <IconButton
-                  icon={<img src={imageIcon} alt="Upload" className="icon" />}
+                  icon={<img src={imageIcon} alt="Upload Image" className="icon" />}
                   onClick={handleImageButtonClick}
                   title="Upload image"
                 />
+                <IconButton
+                  icon={<img src={documentIcon} alt="Upload Document" className="icon" />}
+                  onClick={handleDocumentButtonClick}
+                  title="Upload document"
+                />
                 <input
-                  ref={fileInputRef}
+                  ref={imageInputRef}
                   type="file"
                   accept="image/*"
                   onChange={handleImageUpload}
                   style={{ display: 'none' }}
                 />
+                <input
+                  ref={documentInputRef}
+                  type="file"
+                  accept=".pdf,.csv,.doc,.docx,.xls,.xlsx,.txt,.md"
+                  onChange={handleDocumentUpload}
+                  style={{ display: 'none' }}
+                />
               </div>
               
-              {pendingImages.length > 0 && (
+              {(pendingImages.length > 0 || pendingDocuments.length > 0) && (
                 <div className="message-preview">
                   {pendingImages.map((image, index) => (
-                    <div key={index} className="preview-block">
+                    <div key={`img-${index}`} className="preview-block">
                       <img 
-                        src={URL.createObjectURL(new Blob([image.image.source.bytes], 
+                        src={URL.createObjectURL(new Blob([new Uint8Array(image.image.source.bytes)], 
                         { type: `image/${image.image.format}` }))} 
                         alt="Preview" 
                         className="message-image" 
@@ -473,6 +567,18 @@ function AppContent() {
                         type="button"
                         className="remove-image" 
                         onClick={() => setPendingImages(prev => prev.filter((_, i) => i !== index))}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                  {pendingDocuments.map((doc, index) => (
+                    <div key={`doc-${index}`} className="preview-block document">
+                      <span className="document-name">📄 {doc.document.name}</span>
+                      <button 
+                        type="button"
+                        className="remove-document" 
+                        onClick={() => setPendingDocuments(prev => prev.filter((_, i) => i !== index))}
                       >
                         ×
                       </button>
@@ -494,7 +600,7 @@ function AppContent() {
                   />
                   <button 
                     type="submit" 
-                    disabled={isSending || (!newMessage.trim() && pendingImages.length === 0)}
+                    disabled={isSending || (!newMessage.trim() && pendingImages.length === 0 && pendingDocuments.length === 0)}
                   >
                     Send
                   </button>

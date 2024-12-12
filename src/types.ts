@@ -14,7 +14,7 @@ export interface ImageContentBlock extends BaseContentBlock {
   image: {
     format: 'png' | 'jpeg' | 'gif' | 'webp';
     source: {
-      bytes: Uint8Array;
+      bytes: number[];
     };
   };
 }
@@ -24,8 +24,9 @@ export interface DocumentContentBlock extends BaseContentBlock {
   document: {
     format: 'pdf' | 'csv' | 'doc' | 'docx' | 'xls' | 'xlsx' | 'html' | 'txt' | 'md';
     name: string;
+    size: number;
     source: {
-      bytes: Uint8Array;
+      bytes: number[];
     };
   };
 }
@@ -35,7 +36,7 @@ export interface VideoContentBlock extends BaseContentBlock {
   video: {
     format: 'mkv' | 'mov' | 'mp4' | 'webm' | 'flv' | 'mpeg' | 'mpg' | 'wmv' | 'three_gp';
     source: {
-      bytes: Uint8Array;
+      bytes: number[];
       s3Location?: {
         uri: string;
         bucketOwner?: string;

@@ -127,6 +127,17 @@ export class BedrockClient {
                 }
               }
             };
+          case 'document':
+            return {
+              document: {
+                name: block.document.name,
+                format: block.document.format,
+                size: block.document.size,
+                source: {
+                  bytes: block.document.source.bytes
+                }
+              }
+            };
           default:
             return { text: '[Unsupported content type]' };
         }
@@ -179,6 +190,17 @@ export class BedrockClient {
                 format: block.image.format,
                 source: {
                   bytes: block.image.source.bytes
+                }
+              }
+            };
+          case 'document':
+            return {
+              document: {
+                name: block.document.name,
+                format: block.document.format,
+                size: block.document.size,
+                source: {
+                  bytes: block.document.source.bytes
                 }
               }
             };
