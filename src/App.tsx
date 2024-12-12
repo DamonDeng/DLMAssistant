@@ -162,6 +162,24 @@ function AppContent() {
     }
   };
 
+  const updateSessionTitle = async (session: ChatSession) => {
+    if (!bedrockClientRef.current) return;
+
+    try {
+      const topic = await bedrockClientRef.current.generateTopic(session.messages);
+      if (topic && topic !== "New Chat") {
+        const updatedSession = { ...session, title: topic };
+        await updateSession(updatedSession);
+        setSessions(prev =>
+          prev.map(s => s.id === session.id ? updatedSession : s)
+        );
+        setActiveSession(updatedSession);
+      }
+    } catch (error) {
+      console.error('Failed to generate topic:', error);
+    }
+  };
+
   const handleSendMessage = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!activeSession || (!newMessage.trim() && pendingImages.length === 0) || isSending) return;
@@ -272,6 +290,9 @@ function AppContent() {
           )
         );
         setActiveSession(finalSession);
+
+        // Generate topic after successful message exchange
+        await updateSessionTitle(finalSession);
 
         setTimeout(focusTextarea, 100);
 

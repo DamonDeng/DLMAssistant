@@ -22,6 +22,60 @@ export class BedrockClient {
     }));
   }
 
+  private countWords(messages: ChatMessage[]): number {
+    return messages.reduce((count, msg) => {
+      const textContent = msg.content
+        .filter(block => block.type === 'text')
+        .map(block => (block as any).text)
+        .join(' ');
+      return count + textContent.split(/\s+/).length;
+    }, 0);
+  }
+
+  async generateTopic(messages: ChatMessage[]): Promise<string> {
+    // Only generate topic if there are more than 50 words
+    if (this.countWords(messages) < 50) {
+      return "New Chat";
+    }
+
+    // Create a prompt for topic generation
+    const topicPrompt: ChatMessage = {
+      id: "topic-prompt",
+      role: "user",
+      dlm_message_type: "system",
+      content: [{
+        type: "text",
+        text: "Please generate a concise topic (maximum 6 words) that summarizes the key theme of this conversation. Focus on the main subject matter being discussed. Return only the topic without any additional explanation or punctuation."
+      }],
+      timestamp: Date.now()
+    };
+
+    // Prepare messages for the request
+    const bedrockMessages = this.convertToBedrockMessages([...messages, topicPrompt]);
+    
+    const request: ConverseRequest = {
+      modelId: "anthropic.claude-v2", // Using Claude v2 for consistent summarization
+      messages: bedrockMessages,
+      inferenceConfig: {
+        maxTokens: 20, // Small limit since we only need a short topic
+        temperature: 0.5, // Lower temperature for more focused output
+        topP: 1
+      }
+    };
+
+    try {
+      const response = await this.converseModel(request);
+      // Clean up the response: remove quotes, periods, and trim whitespace
+      const topic = response.replace(/['"\.]+/g, '').trim();
+      // Limit to 6 words
+      const words = topic.split(/\s+/);
+      return words.slice(0, 6).join(' ');
+    } catch (error) {
+      console.error('Error generating topic:', error);
+      return "New Chat";
+    }
+  }
+
   async sendMessage(config: Config, messages: ChatMessage[], onStream?: StreamingCallback): Promise<string> {
     const bedrockMessages = this.convertToBedrockMessages(messages);
     
