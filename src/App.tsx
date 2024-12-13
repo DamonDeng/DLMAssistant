@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from "react";
-import { initDB, getAllSessions, updateSession, getConfig } from "./utils/db";
-import { ChatSession, ChatMessage, Config, ContentBlock, TextContentBlock, ImageContentBlock, DocumentContentBlock } from "./types";
+import { initDB, getAllSessions, updateSession, getConfig, getAllAssistants, updateAssistant } from "./utils/db";
+import { ChatSession, ChatMessage, Config, ContentBlock, TextContentBlock, ImageContentBlock, DocumentContentBlock, Assistant } from "./types";
 import { ConfigPage } from "./components/ConfigPage";
+import { AssistantList } from "./components/AssistantList";
+import { AssistantDetail } from "./components/AssistantDetail";
 import { LanguageProvider, useTranslation } from "./i18n/LanguageContext";
 import { BedrockClient } from "./services/bedrock";
 import { Markdown } from "./components/markdown";
@@ -74,6 +76,8 @@ function AppContent() {
   const [activeTab, setActiveTab] = useState<"chat" | "assistant">("chat");
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSession, setActiveSession] = useState<ChatSession | null>(null);
+  const [assistants, setAssistants] = useState<Assistant[]>([]);
+  const [activeAssistant, setActiveAssistant] = useState<Assistant | null>(null);
   const [newMessage, setNewMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [showConfig, setShowConfig] = useState(false);
@@ -95,6 +99,9 @@ function AppContent() {
         const loadedSessions = await getAllSessions();
         setSessions(loadedSessions.filter(s => !s.deleted));
         
+        const loadedAssistants = await getAllAssistants();
+        setAssistants(loadedAssistants.filter(a => !a.deleted));
+        
         const tempSession = createEmptySession();
         setActiveSession(tempSession);
         
@@ -107,6 +114,46 @@ function AppContent() {
 
     initializeDB();
   }, []);
+
+  const createNewAssistant = async () => {
+    const newAssistant: Assistant = {
+      id: Date.now(),
+      name: 'New Assistant',
+      createdTime: Date.now()
+    };
+
+    try {
+      await updateAssistant(newAssistant);
+      setAssistants(prev => [...prev, newAssistant]);
+      setActiveAssistant(newAssistant);
+    } catch (error) {
+      console.error('Failed to create new assistant:', error);
+    }
+  };
+
+  const deleteAssistant = async (assistantId: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      const assistantToDelete = assistants.find(a => a.id === assistantId);
+      if (assistantToDelete) {
+        const updatedAssistant = { ...assistantToDelete, deleted: true };
+        await updateAssistant(updatedAssistant);
+        
+        const updatedAssistants = assistants.filter(a => a.id !== assistantId);
+        setAssistants(updatedAssistants);
+        
+        if (activeAssistant?.id === assistantId) {
+          setActiveAssistant(null);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to delete assistant:', error);
+    }
+  };
+
+  const handleAssistantClick = (assistant: Assistant) => {
+    setActiveAssistant(assistant);
+  };
 
   const handleImageButtonClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -637,7 +684,16 @@ function AppContent() {
           </div>
         ) : (
           <div className="assistant-page">
-            Assistant design
+            <div className="container">
+              <AssistantList
+                assistants={assistants}
+                activeAssistant={activeAssistant}
+                onAssistantClick={handleAssistantClick}
+                onDeleteAssistant={deleteAssistant}
+                onNewAssistant={createNewAssistant}
+              />
+              <AssistantDetail assistant={activeAssistant} />
+            </div>
           </div>
         )}
       </div>

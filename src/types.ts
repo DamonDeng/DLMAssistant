@@ -180,4 +180,11 @@ export interface ConverseResponse {
   };
 }
 
+export interface Assistant {
+  id: number;
+  name: string;
+  createdTime: number;
+  deleted?: boolean;
+}
+
 export type StreamingCallback = (text: string, done: boolean) => void;
