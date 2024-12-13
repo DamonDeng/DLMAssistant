@@ -1,12 +1,78 @@
+/* Tab Navigation */
+.app {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  background-color: #f7f7f8;
+}
+
+.app > .sidebar {
+  width: 60px;
+  height: 100%;
+  background-color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid #e5e5e5;
+}
+
+.tab-button {
+  width: 100%;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background-color: transparent;
+  border: none;
+  padding: 0;
+}
+
+.tab-button:hover {
+  background-color: #f0f0f0;
+}
+
+.tab-button.active {
+  background-color: #edf6ff;
+  border-right: 2px solid #2563eb;
+}
+
+.tab-button img {
+  width: 24px;
+  height: 24px;
+  opacity: 0.7;
+}
+
+.tab-button.active img {
+  opacity: 1;
+}
+
+.content {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  overflow: hidden;
+}
+
+.assistant-page {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  color: #1a1a1a;
+}
+
+/* Original Chat UI Styles */
 .container {
   display: flex;
-  height: 100vh;
-  width: 100vw;
+  height: 100%;
+  width: 100%;
   overflow: hidden;
   background-color: #f7f7f8;
 }
 
-.sidebar {
+.container > .sidebar {
   width: 300px;
   min-width: 300px;
   flex-shrink: 0;
@@ -447,44 +513,6 @@
   z-index: 1000;
 }
 
-/* Message Actions */
-.message-actions {
-  position: absolute;
-  top: -30px;
-  right: 0;
-  display: flex;
-  gap: 8px;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-  background-color: white;
-  padding: 4px;
-  border-radius: 8px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-}
-
-.message:hover .message-actions {
-  opacity: 1;
-}
-
-.action-button {
-  padding: 4px 8px;
-  border: none;
-  background: none;
-  color: #6b7280;
-  cursor: pointer;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 0.9em;
-  transition: all 0.2s ease;
-}
-
-.action-button:hover {
-  background-color: #f3f4f6;
-  color: #2563eb;
-}
-
 /* Scrollbar Styling */
 ::-webkit-scrollbar {
   width: 8px;
@@ -506,7 +534,7 @@
 
 /* Responsive Design */
 @media (max-width: 768px) {
-  .sidebar {
+  .container > .sidebar {
     width: 260px;
     min-width: 260px;
   }
@@ -521,7 +549,7 @@
 }
 
 @media (max-width: 640px) {
-  .sidebar {
+  .container > .sidebar {
     display: none;
   }
 
