@@ -1,0 +1,90 @@
+.workflow-designer {
+  width: 100%;
+  height: 100%;
+  background-color: #1e1e1e;
+  background-image: 
+    linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 20px 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.workflow-designer canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  cursor: default;
+}
+
+.workflow-designer canvas:active {
+  cursor: grabbing;
+}
+
+.workflow-node {
+  position: absolute;
+  background: linear-gradient(to bottom, #3a3a3a, #2e2e2e);
+  border: 2px solid #666;
+  border-radius: 5px;
+  width: 200px;
+  height: 60px;
+  user-select: none;
+  cursor: move;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.workflow-node:hover {
+  border-color: #888;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.workflow-node-title {
+  color: #fff;
+  font-size: 14px;
+  padding: 8px 10px;
+  font-weight: 500;
+}
+
+.workflow-node-type {
+  color: #999;
+  font-size: 12px;
+  padding: 0 10px;
+}
+
+.workflow-connection {
+  position: absolute;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.workflow-connector {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background-color: #4CAF50;
+  border: 2px solid #333;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.workflow-connector:hover {
+  transform: scale(1.2);
+  box-shadow: 0 0 8px rgba(76, 175, 80, 0.6);
+}
+
+.workflow-connector.input {
+  left: -6px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.workflow-connector.output {
+  right: -6px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.workflow-connector.unconnected {
+  background-color: #666;
+}
