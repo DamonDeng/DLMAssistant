@@ -14,6 +14,11 @@ interface Connection {
   to: string;
 }
 
+interface Point {
+  x: number;
+  y: number;
+}
+
 interface WorkflowDesignerProps {
   nodes: Node[];
   connections: Connection[];
@@ -35,26 +40,28 @@ export const WorkflowDesigner: React.FC<WorkflowDesignerProps> = ({
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [lastAddedPosition, setLastAddedPosition] = useState<{ x: number; y: number } | null>(null);
   const [lastAction, setLastAction] = useState<'add' | 'other'>('other');
+  
+  // Connection dragging state
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [connectionStart, setConnectionStart] = useState<{ nodeId: string, isInput: boolean } | null>(null);
+  const [connectionEnd, setConnectionEnd] = useState<Point | null>(null);
 
   const NODE_WIDTH = 200;
   const NODE_HEIGHT = 60;
   const CONNECTOR_RADIUS = 6;
-  const NODE_OFFSET = { x: 30, y: 30 }; // Offset for consecutive adds
+  const NODE_OFFSET = { x: 30, y: 30 };
 
   const getNewNodePosition = () => {
     const canvas = canvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
 
     if (lastAction === 'add' && lastAddedPosition) {
-      // Calculate new position based on last added node
       const newX = lastAddedPosition.x + NODE_OFFSET.x;
       const newY = lastAddedPosition.y + NODE_OFFSET.y;
 
-      // Check if we're too close to the edge
       const maxX = canvas.width - NODE_WIDTH - 20;
       const maxY = canvas.height - NODE_HEIGHT - 20;
 
-      // If too close to edge, reset to left side with increased Y
       if (newX > maxX) {
         return {
           x: 50,
@@ -65,7 +72,6 @@ export const WorkflowDesigner: React.FC<WorkflowDesignerProps> = ({
       return { x: newX, y: newY };
     }
 
-    // Default center position
     return {
       x: (canvas.width - NODE_WIDTH) / 2,
       y: (canvas.height - NODE_HEIGHT) / 2
@@ -92,15 +98,42 @@ export const WorkflowDesigner: React.FC<WorkflowDesignerProps> = ({
     }
   };
 
+  const isPointNearConnector = (
+    point: Point,
+    nodePosition: Point,
+    isInput: boolean
+  ): boolean => {
+    const connectorX = isInput ? nodePosition.x : nodePosition.x + NODE_WIDTH;
+    const connectorY = nodePosition.y + NODE_HEIGHT / 2;
+    const dx = point.x - connectorX;
+    const dy = point.y - connectorY;
+    return Math.sqrt(dx * dx + dy * dy) <= CONNECTOR_RADIUS * 2;
+  };
+
+  const findConnectorUnderPoint = (point: Point): { nodeId: string, isInput: boolean } | null => {
+    for (const node of nodes) {
+      // Check input connector
+      if (isPointNearConnector(point, node.position, true)) {
+        return { nodeId: node.id, isInput: true };
+      }
+      // Check output connector
+      if (isPointNearConnector(point, node.position, false)) {
+        return { nodeId: node.id, isInput: false };
+      }
+    }
+    return null;
+  };
+
   const drawConnector = (
     ctx: CanvasRenderingContext2D,
     x: number,
     y: number,
-    isConnected: boolean
+    isConnected: boolean,
+    isHighlighted: boolean = false
   ) => {
     ctx.beginPath();
     ctx.arc(x, y, CONNECTOR_RADIUS, 0, Math.PI * 2);
-    ctx.fillStyle = isConnected ? '#4CAF50' : '#666';
+    ctx.fillStyle = isHighlighted ? '#8AF' : (isConnected ? '#4CAF50' : '#666');
     ctx.fill();
     ctx.strokeStyle = '#333';
     ctx.lineWidth = 2;
@@ -112,7 +145,8 @@ export const WorkflowDesigner: React.FC<WorkflowDesignerProps> = ({
     startX: number,
     startY: number,
     endX: number,
-    endY: number
+    endY: number,
+    isTemp: boolean = false
   ) => {
     const controlPointOffset = Math.min(150, Math.abs(endX - startX) / 2);
     
@@ -127,14 +161,20 @@ export const WorkflowDesigner: React.FC<WorkflowDesignerProps> = ({
       endY
     );
     
-    // Create gradient for the connection line
-    const gradient = ctx.createLinearGradient(startX, startY, endX, endY);
-    gradient.addColorStop(0, '#4CAF50');
-    gradient.addColorStop(1, '#4CAF50');
+    if (isTemp) {
+      ctx.strokeStyle = '#8AF';
+      ctx.setLineDash([5, 5]);
+    } else {
+      const gradient = ctx.createLinearGradient(startX, startY, endX, endY);
+      gradient.addColorStop(0, '#4CAF50');
+      gradient.addColorStop(1, '#4CAF50');
+      ctx.strokeStyle = gradient;
+      ctx.setLineDash([]);
+    }
     
-    ctx.strokeStyle = gradient;
     ctx.lineWidth = 2;
     ctx.stroke();
+    ctx.setLineDash([]);
   };
 
   useEffect(() => {
@@ -144,11 +184,8 @@ export const WorkflowDesigner: React.FC<WorkflowDesignerProps> = ({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Set canvas size
     canvas.width = canvas.offsetWidth;
     canvas.height = canvas.offsetHeight;
-
-    // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // Draw connections
@@ -164,6 +201,26 @@ export const WorkflowDesigner: React.FC<WorkflowDesignerProps> = ({
         drawCurvedConnection(ctx, startX, startY, endX, endY);
       }
     });
+
+    // Draw temporary connection if dragging
+    if (isConnecting && connectionStart && connectionEnd) {
+      const startNode = nodes.find(n => n.id === connectionStart.nodeId);
+      if (startNode) {
+        const startX = connectionStart.isInput ? 
+          startNode.position.x : 
+          startNode.position.x + NODE_WIDTH;
+        const startY = startNode.position.y + NODE_HEIGHT / 2;
+        
+        drawCurvedConnection(
+          ctx,
+          startX,
+          startY,
+          connectionEnd.x,
+          connectionEnd.y,
+          true
+        );
+      }
+    }
 
     // Draw nodes
     nodes.forEach(node => {
@@ -195,25 +252,39 @@ export const WorkflowDesigner: React.FC<WorkflowDesignerProps> = ({
       ctx.font = '12px Arial';
       ctx.fillText(node.type, node.position.x + 10, node.position.y + 45);
 
-      // Input connector (left side)
+      // Input connector
       const hasInputConnection = connections.some(conn => conn.to === node.id);
+      const isInputHighlighted = isConnecting && 
+        connectionStart && 
+        !connectionStart.isInput && 
+        connectionEnd && 
+        findConnectorUnderPoint(connectionEnd)?.nodeId === node.id;
+      
       drawConnector(
         ctx,
         node.position.x,
         node.position.y + NODE_HEIGHT / 2,
-        hasInputConnection
+        hasInputConnection,
+        isInputHighlighted || false
       );
 
-      // Output connector (right side)
+      // Output connector
       const hasOutputConnection = connections.some(conn => conn.from === node.id);
+      const isOutputHighlighted = isConnecting && 
+        connectionStart && 
+        connectionStart.isInput && 
+        connectionEnd && 
+        findConnectorUnderPoint(connectionEnd)?.nodeId === node.id;
+      
       drawConnector(
         ctx,
         node.position.x + NODE_WIDTH,
         node.position.y + NODE_HEIGHT / 2,
-        hasOutputConnection
+        hasOutputConnection,
+        isOutputHighlighted || false
       );
     });
-  }, [nodes, connections]);
+  }, [nodes, connections, isConnecting, connectionStart, connectionEnd]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     const canvas = canvasRef.current;
@@ -223,7 +294,14 @@ export const WorkflowDesigner: React.FC<WorkflowDesignerProps> = ({
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    // Check if clicked on a node
+    const connector = findConnectorUnderPoint({ x, y });
+    if (connector) {
+      setIsConnecting(true);
+      setConnectionStart(connector);
+      setConnectionEnd({ x, y });
+      return;
+    }
+
     const clickedNode = nodes.find(node => 
       x >= node.position.x && 
       x <= node.position.x + NODE_WIDTH &&
@@ -238,31 +316,73 @@ export const WorkflowDesigner: React.FC<WorkflowDesignerProps> = ({
         x: x - clickedNode.position.x,
         y: y - clickedNode.position.y
       });
-      setLastAction('other'); // Reset last action when dragging
+      setLastAction('other');
     }
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging || !draggedNode) return;
-
     const canvas = canvasRef.current;
     if (!canvas) return;
 
     const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left - offset.x;
-    const y = e.clientY - rect.top - offset.y;
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
 
-    setNodes(nodes.map(node => 
-      node.id === draggedNode 
-        ? { ...node, position: { x, y } }
-        : node
-    ));
+    if (isConnecting) {
+      setConnectionEnd({ x, y });
+      return;
+    }
+
+    if (isDragging && draggedNode) {
+      const newX = x - offset.x;
+      const newY = y - offset.y;
+
+      setNodes(nodes.map(node => 
+        node.id === draggedNode 
+          ? { ...node, position: { x: newX, y: newY } }
+          : node
+      ));
+    }
   };
 
-  const handleMouseUp = () => {
+  const handleMouseUp = (e: React.MouseEvent) => {
+    if (isConnecting && connectionStart) {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      const connector = findConnectorUnderPoint({ x, y });
+      
+      if (connector && connector.nodeId !== connectionStart.nodeId) {
+        // Ensure we're connecting from output to input
+        const from = connectionStart.isInput ? connector.nodeId : connectionStart.nodeId;
+        const to = connectionStart.isInput ? connectionStart.nodeId : connector.nodeId;
+
+        // Check if connection already exists
+        const connectionExists = connections.some(
+          conn => conn.from === from && conn.to === to
+        );
+
+        if (!connectionExists) {
+          const updatedConnections = [...connections, { from, to }];
+          setConnections(updatedConnections);
+          if (onConnectionsChange) {
+            onConnectionsChange(updatedConnections);
+          }
+        }
+      }
+    }
+
     if (isDragging && onNodesChange) {
       onNodesChange(nodes);
     }
+
+    setIsConnecting(false);
+    setConnectionStart(null);
+    setConnectionEnd(null);
     setIsDragging(false);
     setDraggedNode(null);
   };
