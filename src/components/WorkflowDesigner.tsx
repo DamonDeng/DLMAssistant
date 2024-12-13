@@ -33,28 +33,60 @@ export const WorkflowDesigner: React.FC<WorkflowDesignerProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const [draggedNode, setDraggedNode] = useState<string | null>(null);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const [lastAddedPosition, setLastAddedPosition] = useState<{ x: number; y: number } | null>(null);
+  const [lastAction, setLastAction] = useState<'add' | 'other'>('other');
 
   const NODE_WIDTH = 200;
   const NODE_HEIGHT = 60;
   const CONNECTOR_RADIUS = 6;
+  const NODE_OFFSET = { x: 30, y: 30 }; // Offset for consecutive adds
+
+  const getNewNodePosition = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+
+    if (lastAction === 'add' && lastAddedPosition) {
+      // Calculate new position based on last added node
+      const newX = lastAddedPosition.x + NODE_OFFSET.x;
+      const newY = lastAddedPosition.y + NODE_OFFSET.y;
+
+      // Check if we're too close to the edge
+      const maxX = canvas.width - NODE_WIDTH - 20;
+      const maxY = canvas.height - NODE_HEIGHT - 20;
+
+      // If too close to edge, reset to left side with increased Y
+      if (newX > maxX) {
+        return {
+          x: 50,
+          y: Math.min(lastAddedPosition.y + NODE_HEIGHT + 20, maxY)
+        };
+      }
+
+      return { x: newX, y: newY };
+    }
+
+    // Default center position
+    return {
+      x: (canvas.width - NODE_WIDTH) / 2,
+      y: (canvas.height - NODE_HEIGHT) / 2
+    };
+  };
 
   const handleAddNode = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    // Calculate center position
-    const centerX = (canvas.width - NODE_WIDTH) / 2;
-    const centerY = (canvas.height - NODE_HEIGHT) / 2;
-
+    const position = getNewNodePosition();
+    
     const newNode = {
       id: generateId(),
       type: 'process',
-      position: { x: centerX, y: centerY },
+      position,
       title: 'New Node'
     };
 
     const updatedNodes = [...nodes, newNode];
     setNodes(updatedNodes);
+    setLastAddedPosition(position);
+    setLastAction('add');
+    
     if (onNodesChange) {
       onNodesChange(updatedNodes);
     }
@@ -206,6 +238,7 @@ export const WorkflowDesigner: React.FC<WorkflowDesignerProps> = ({
         x: x - clickedNode.position.x,
         y: y - clickedNode.position.y
       });
+      setLastAction('other'); // Reset last action when dragging
     }
   };
 
