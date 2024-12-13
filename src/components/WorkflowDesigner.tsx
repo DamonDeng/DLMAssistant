@@ -1,4 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { WorkflowToolbar } from './WorkflowToolbar';
+import { generateId } from '../utils/id';
 
 interface Node {
   id: string;
@@ -35,6 +37,28 @@ export const WorkflowDesigner: React.FC<WorkflowDesignerProps> = ({
   const NODE_WIDTH = 200;
   const NODE_HEIGHT = 60;
   const CONNECTOR_RADIUS = 6;
+
+  const handleAddNode = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    // Calculate center position
+    const centerX = (canvas.width - NODE_WIDTH) / 2;
+    const centerY = (canvas.height - NODE_HEIGHT) / 2;
+
+    const newNode = {
+      id: generateId(),
+      type: 'process',
+      position: { x: centerX, y: centerY },
+      title: 'New Node'
+    };
+
+    const updatedNodes = [...nodes, newNode];
+    setNodes(updatedNodes);
+    if (onNodesChange) {
+      onNodesChange(updatedNodes);
+    }
+  };
 
   const drawConnector = (
     ctx: CanvasRenderingContext2D,
@@ -212,13 +236,14 @@ export const WorkflowDesigner: React.FC<WorkflowDesignerProps> = ({
 
   return (
     <div className="workflow-designer">
+      <WorkflowToolbar onAddNode={handleAddNode} />
       <canvas
         ref={canvasRef}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
-        style={{ width: '100%', height: '100%' }}
+        style={{ width: '100%', height: 'calc(100% - 40px)' }}
       />
     </div>
   );
