@@ -180,11 +180,27 @@ export interface ConverseResponse {
   };
 }
 
+export interface WorkflowNode {
+  id: string;
+  type: string;
+  position: { x: number; y: number };
+  title: string;
+}
+
+export interface WorkflowConnection {
+  from: string;
+  to: string;
+}
+
 export interface Assistant {
   id: number;
   name: string;
   createdTime: number;
   deleted?: boolean;
+  workflow?: {
+    nodes: WorkflowNode[];
+    connections: WorkflowConnection[];
+  };
 }
 
 export type StreamingCallback = (text: string, done: boolean) => void;

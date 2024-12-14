@@ -51,6 +51,14 @@ export const WorkflowDesigner: React.FC<WorkflowDesignerProps> = ({
   const CONNECTOR_RADIUS = 6;
   const NODE_OFFSET = { x: 30, y: 30 };
 
+  // Update local state when props change
+  useEffect(() => {
+    setNodes(initialNodes);
+    setConnections(initialConnections);
+    setLastAddedPosition(null);
+    setLastAction('other');
+  }, [initialNodes, initialConnections]);
+
   const getNewNodePosition = () => {
     const canvas = canvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
@@ -184,8 +192,14 @@ export const WorkflowDesigner: React.FC<WorkflowDesignerProps> = ({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    canvas.width = canvas.offsetWidth;
-    canvas.height = canvas.offsetHeight;
+    const resizeCanvas = () => {
+      canvas.width = canvas.offsetWidth;
+      canvas.height = canvas.offsetHeight;
+    };
+
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // Draw connections
@@ -284,6 +298,10 @@ export const WorkflowDesigner: React.FC<WorkflowDesignerProps> = ({
         isOutputHighlighted || false
       );
     });
+
+    return () => {
+      window.removeEventListener('resize', resizeCanvas);
+    };
   }, [nodes, connections, isConnecting, connectionStart, connectionEnd]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -337,11 +355,16 @@ export const WorkflowDesigner: React.FC<WorkflowDesignerProps> = ({
       const newX = x - offset.x;
       const newY = y - offset.y;
 
-      setNodes(nodes.map(node => 
+      const updatedNodes = nodes.map(node => 
         node.id === draggedNode 
           ? { ...node, position: { x: newX, y: newY } }
           : node
-      ));
+      );
+      setNodes(updatedNodes);
+      
+      if (onNodesChange) {
+        onNodesChange(updatedNodes);
+      }
     }
   };
 
@@ -374,10 +397,6 @@ export const WorkflowDesigner: React.FC<WorkflowDesignerProps> = ({
           }
         }
       }
-    }
-
-    if (isDragging && onNodesChange) {
-      onNodesChange(nodes);
     }
 
     setIsConnecting(false);
