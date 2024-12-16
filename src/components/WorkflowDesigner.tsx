@@ -38,8 +38,8 @@ export const WorkflowDesigner: React.FC<WorkflowDesignerProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const [draggedNode, setDraggedNode] = useState<string | null>(null);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
-  const [lastAddedPosition, setLastAddedPosition] = useState<{ x: number; y: number } | null>(null);
-  const [lastAction, setLastAction] = useState<'add' | 'other'>('other');
+  const consecutiveAddsRef = useRef(0);
+  const lastAddedPositionRef = useRef<{ x: number; y: number } | null>(null);
   
   // Connection dragging state
   const [isConnecting, setIsConnecting] = useState(false);
@@ -50,44 +50,56 @@ export const WorkflowDesigner: React.FC<WorkflowDesignerProps> = ({
   const NODE_HEIGHT = 60;
   const CONNECTOR_RADIUS = 6;
   const NODE_OFFSET = { x: 30, y: 30 };
+  const MAX_CONSECUTIVE_ADDS = 5;  // Changed from 3 to 5
 
   // Update local state when props change
   useEffect(() => {
     setNodes(initialNodes);
     setConnections(initialConnections);
-    setLastAddedPosition(null);
-    setLastAction('other');
   }, [initialNodes, initialConnections]);
 
   const getNewNodePosition = () => {
     const canvas = canvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
 
-    if (lastAction === 'add' && lastAddedPosition) {
-      const newX = lastAddedPosition.x + NODE_OFFSET.x;
-      const newY = lastAddedPosition.y + NODE_OFFSET.y;
+    const centerX = (canvas.width - NODE_WIDTH) / 2;
+    const centerY = (canvas.height - NODE_HEIGHT) / 2;
+
+    if (consecutiveAddsRef.current >= MAX_CONSECUTIVE_ADDS) {  // Changed threshold to 5
+      // Reset to center for the 6th consecutive add
+      consecutiveAddsRef.current = 0;
+      lastAddedPositionRef.current = { x: centerX, y: centerY };
+      return { x: centerX, y: centerY };
+    }
+
+    if (lastAddedPositionRef.current) {
+      const newX = lastAddedPositionRef.current.x + NODE_OFFSET.x;
+      const newY = lastAddedPositionRef.current.y + NODE_OFFSET.y;
 
       const maxX = canvas.width - NODE_WIDTH - 20;
       const maxY = canvas.height - NODE_HEIGHT - 20;
 
+      // If we hit the right edge, wrap to the next row
       if (newX > maxX) {
-        return {
-          x: 50,
-          y: Math.min(lastAddedPosition.y + NODE_HEIGHT + 20, maxY)
+        const position = {
+          x: centerX,
+          y: Math.min(lastAddedPositionRef.current.y + NODE_HEIGHT + 20, maxY)
         };
+        lastAddedPositionRef.current = position;
+        return position;
       }
 
+      lastAddedPositionRef.current = { x: newX, y: newY };
       return { x: newX, y: newY };
     }
 
-    return {
-      x: (canvas.width - NODE_WIDTH) / 2,
-      y: (canvas.height - NODE_HEIGHT) / 2
-    };
+    lastAddedPositionRef.current = { x: centerX, y: centerY };
+    return { x: centerX, y: centerY };
   };
 
   const handleAddNode = () => {
     const position = getNewNodePosition();
+    consecutiveAddsRef.current += 1;
     
     const newNode = {
       id: generateId(),
@@ -98,8 +110,6 @@ export const WorkflowDesigner: React.FC<WorkflowDesignerProps> = ({
 
     const updatedNodes = [...nodes, newNode];
     setNodes(updatedNodes);
-    setLastAddedPosition(position);
-    setLastAction('add');
     
     if (onNodesChange) {
       onNodesChange(updatedNodes);
@@ -334,7 +344,7 @@ export const WorkflowDesigner: React.FC<WorkflowDesignerProps> = ({
         x: x - clickedNode.position.x,
         y: y - clickedNode.position.y
       });
-      setLastAction('other');
+      consecutiveAddsRef.current = 0;
     }
   };
 
