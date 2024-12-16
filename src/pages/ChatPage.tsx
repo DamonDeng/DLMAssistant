@@ -9,7 +9,6 @@ import { updateSession, getConfig, getAllSessions } from "../utils/db";
 import { useTranslation } from "../i18n/LanguageContext";
 
 // Import icons
-import settingsIcon from "../assets/icons/settings.svg";
 import closeIcon from "../assets/icons/close.svg";
 import imageIcon from "../assets/icons/image.svg";
 import documentIcon from "../assets/icons/document.svg";
@@ -66,11 +65,7 @@ function createEmptySession(): ChatSession {
   };
 }
 
-interface ChatPageProps {
-  onShowConfig: () => void;
-}
-
-export function ChatPage({ onShowConfig }: ChatPageProps) {
+export function ChatPage() {
   const { t } = useTranslation();
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSession, setActiveSession] = useState<ChatSession | null>(null);
@@ -488,11 +483,6 @@ export function ChatPage({ onShowConfig }: ChatPageProps) {
           <button className="new-chat-button" onClick={createNewChat}>
             {t('newChat')}
           </button>
-          <IconButton
-            icon={<img src={settingsIcon} alt="Settings" className="icon" />}
-            onClick={onShowConfig}
-            title="Settings"
-          />
         </div>
       </div>
 

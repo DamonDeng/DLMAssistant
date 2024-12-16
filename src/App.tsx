@@ -1,22 +1,22 @@
 import { useState, useEffect } from "react";
 import { initDB, getAllSessions, getAllAssistants } from "./utils/db";
 import { ChatSession, Assistant } from "./types";
-import { ConfigPage } from "./components/ConfigPage";
 import { LanguageProvider, useTranslation } from "./i18n/LanguageContext";
 import { ChatPage } from "./pages/ChatPage";
 import { AssistantPage } from "./pages/AssistantPage";
+import { ConfigPage } from "./pages/ConfigPage";
 
 // Import icons
 import chatIcon from "./assets/icons/chat.svg";
+import robotIcon from "./assets/icons/robot.svg";
 import settingsIcon from "./assets/icons/settings.svg";
 
 import "./App.css";
 
 function AppContent() {
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState<"chat" | "assistant">("chat");
+  const [activeTab, setActiveTab] = useState<"chat" | "assistant" | "config">("chat");
   const [isLoading, setIsLoading] = useState(true);
-  const [showConfig, setShowConfig] = useState(false);
 
   // Initialize database
   useEffect(() => {
@@ -52,19 +52,25 @@ function AppContent() {
           className={`tab-button ${activeTab === "assistant" ? "active" : ""}`}
           onClick={() => setActiveTab("assistant")}
         >
-          <img src={settingsIcon} alt="Assistant" />
+          <img src={robotIcon} alt="Assistant" />
+        </button>
+        <button
+          className={`tab-button ${activeTab === "config" ? "active" : ""}`}
+          onClick={() => setActiveTab("config")}
+        >
+          <img src={settingsIcon} alt="Config" />
         </button>
       </div>
       
       <div className="content">
         {activeTab === "chat" ? (
-          <ChatPage onShowConfig={() => setShowConfig(true)} />
-        ) : (
+          <ChatPage />
+        ) : activeTab === "assistant" ? (
           <AssistantPage />
+        ) : (
+          <ConfigPage />
         )}
       </div>
-
-      {showConfig && <ConfigPage onClose={() => setShowConfig(false)} />}
     </div>
   );
 }
