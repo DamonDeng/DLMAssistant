@@ -94,10 +94,8 @@ export interface ChatMessage {
   dlm_message_type: 'error' | 'chat' | 'system';
   content: ContentBlock[];
   timestamp: number;
-  // Legacy support
   legacy_content?: string;
   legacy_content_type?: string;
-  // For streaming support
   isStreaming?: boolean;
 }
 
@@ -107,7 +105,7 @@ export interface ChatSession {
   preview: string;
   messages: ChatMessage[];
   deleted?: boolean;
-  isTemporary?: boolean; // New flag to mark temporary sessions
+  isTemporary?: boolean;
 }
 
 export interface Config {
@@ -199,6 +197,15 @@ export interface Workflow {
   deleted?: boolean;
   nodes: WorkflowNode[];
   connections: WorkflowConnection[];
+}
+
+export interface Assistant {
+  id: number;
+  name: string;
+  mainWorkflow: number; // References Workflow.id
+  createdTime: number;
+  updatedAt?: number;
+  deleted?: boolean;
 }
 
 export type StreamingCallback = (text: string, done: boolean) => void;

@@ -3,6 +3,7 @@ import { initDB, getAllSessions, getAllWorkflows } from "./utils/db";
 import { ChatSession, Workflow } from "./types";
 import { LanguageProvider, useTranslation } from "./i18n/LanguageContext";
 import { ChatPage } from "./pages/ChatPage";
+import { AssistantPage } from "./pages/AssistantPage";
 import { WorkflowPage } from "./pages/WorkflowPage";
 import { ConfigPage } from "./pages/ConfigPage";
 
@@ -10,12 +11,13 @@ import { ConfigPage } from "./pages/ConfigPage";
 import chatIcon from "./assets/icons/chat.svg";
 import robotIcon from "./assets/icons/robot.svg";
 import settingsIcon from "./assets/icons/settings.svg";
+import assistantIcon from "./assets/icons/brain.svg";
 
 import "./App.css";
 
 function AppContent() {
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState<"chat" | "workflow" | "config">("chat");
+  const [activeTab, setActiveTab] = useState<"chat" | "assistant" | "workflow" | "config">("chat");
   const [isLoading, setIsLoading] = useState(true);
 
   // Initialize database
@@ -49,6 +51,12 @@ function AppContent() {
           <img src={chatIcon} alt="Chat" />
         </button>
         <button
+          className={`tab-button ${activeTab === "assistant" ? "active" : ""}`}
+          onClick={() => setActiveTab("assistant")}
+        >
+          <img src={assistantIcon} alt="Assistant" />
+        </button>
+        <button
           className={`tab-button ${activeTab === "workflow" ? "active" : ""}`}
           onClick={() => setActiveTab("workflow")}
         >
@@ -65,6 +73,8 @@ function AppContent() {
       <div className="content">
         {activeTab === "chat" ? (
           <ChatPage />
+        ) : activeTab === "assistant" ? (
+          <AssistantPage />
         ) : activeTab === "workflow" ? (
           <WorkflowPage />
         ) : (
