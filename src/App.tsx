@@ -10,6 +10,7 @@ import { ConfigPage } from "./pages/ConfigPage";
 // Import icons
 import chatIcon from "./assets/icons/chat.svg";
 import robotIcon from "./assets/icons/robot.svg";
+import workflowIcon from "./assets/icons/connection.svg";
 import settingsIcon from "./assets/icons/settings.svg";
 import assistantIcon from "./assets/icons/brain.svg";
 
@@ -60,7 +61,7 @@ function AppContent() {
           className={`tab-button ${activeTab === "workflow" ? "active" : ""}`}
           onClick={() => setActiveTab("workflow")}
         >
-          <img src={robotIcon} alt="Workflow" />
+          <img src={workflowIcon} alt="Workflow" />
         </button>
         <button
           className={`tab-button ${activeTab === "config" ? "active" : ""}`}
