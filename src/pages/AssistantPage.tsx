@@ -107,7 +107,7 @@ const AssistantDetail: React.FC<{
             }}
           >
             <option value={0}>Select a workflow</option>
-            {workflows.map((workflow) => (
+            {workflows.filter(workflow => !workflow.deleted).map((workflow) => (
               <option key={workflow.id} value={workflow.id}>
                 {workflow.name}
               </option>
