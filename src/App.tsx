@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
-import { initDB, getAllSessions, getAllAssistants } from "./utils/db";
-import { ChatSession, Assistant } from "./types";
+import { initDB, getAllSessions, getAllWorkflows } from "./utils/db";
+import { ChatSession, Workflow } from "./types";
 import { LanguageProvider, useTranslation } from "./i18n/LanguageContext";
 import { ChatPage } from "./pages/ChatPage";
-import { AssistantPage } from "./pages/AssistantPage";
+import { WorkflowPage } from "./pages/WorkflowPage";
 import { ConfigPage } from "./pages/ConfigPage";
 
 // Import icons
@@ -15,7 +15,7 @@ import "./App.css";
 
 function AppContent() {
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState<"chat" | "assistant" | "config">("chat");
+  const [activeTab, setActiveTab] = useState<"chat" | "workflow" | "config">("chat");
   const [isLoading, setIsLoading] = useState(true);
 
   // Initialize database
@@ -24,7 +24,7 @@ function AppContent() {
       try {
         await initDB();
         const loadedSessions = await getAllSessions();
-        const loadedAssistants = await getAllAssistants();
+        const loadedWorkflows = await getAllWorkflows();
         setIsLoading(false);
       } catch (error) {
         console.error('Failed to initialize database:', error);
@@ -49,10 +49,10 @@ function AppContent() {
           <img src={chatIcon} alt="Chat" />
         </button>
         <button
-          className={`tab-button ${activeTab === "assistant" ? "active" : ""}`}
-          onClick={() => setActiveTab("assistant")}
+          className={`tab-button ${activeTab === "workflow" ? "active" : ""}`}
+          onClick={() => setActiveTab("workflow")}
         >
-          <img src={robotIcon} alt="Assistant" />
+          <img src={robotIcon} alt="Workflow" />
         </button>
         <button
           className={`tab-button ${activeTab === "config" ? "active" : ""}`}
@@ -65,8 +65,8 @@ function AppContent() {
       <div className="content">
         {activeTab === "chat" ? (
           <ChatPage />
-        ) : activeTab === "assistant" ? (
-          <AssistantPage />
+        ) : activeTab === "workflow" ? (
+          <WorkflowPage />
         ) : (
           <ConfigPage />
         )}

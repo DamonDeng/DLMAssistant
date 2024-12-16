@@ -192,15 +192,13 @@ export interface WorkflowConnection {
   to: string;
 }
 
-export interface Assistant {
+export interface Workflow {
   id: number;
   name: string;
   createdTime: number;
   deleted?: boolean;
-  workflow?: {
-    nodes: WorkflowNode[];
-    connections: WorkflowConnection[];
-  };
+  nodes: WorkflowNode[];
+  connections: WorkflowConnection[];
 }
 
 export type StreamingCallback = (text: string, done: boolean) => void;

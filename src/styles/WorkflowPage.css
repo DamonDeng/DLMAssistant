@@ -1,0 +1,170 @@
+.workflow-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+}
+
+.workflow-page .container {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  height: calc(100vh - 60px); /* Adjust for top bar */
+}
+
+.workflow-page .workflow-list {
+  width: 300px;
+  border-right: 1px solid #e0e0e0;
+  display: flex;
+  flex-direction: column;
+  background: #f5f5f5;
+  height: 100%;
+  overflow: hidden;
+}
+
+.workflow-page .list-header {
+  padding: 16px;
+  border-bottom: 1px solid #e0e0e0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: white;
+  flex-shrink: 0;
+}
+
+.workflow-page .list-header h2 {
+  margin: 0;
+  font-size: 1.2em;
+  color: #333;
+}
+
+.workflow-page .list-header button {
+  padding: 8px 16px;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9em;
+}
+
+.workflow-page .list-header button:hover {
+  background: #0056b3;
+}
+
+.workflow-page .list-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.workflow-page .workflow-item {
+  padding: 12px;
+  margin: 4px 0;
+  border-radius: 4px;
+  background: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.workflow-page .workflow-item:hover {
+  background: #f8f9fa;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+}
+
+.workflow-page .workflow-item.active {
+  background: #e3f2fd;
+  border-left: 3px solid #007bff;
+}
+
+.workflow-page .workflow-item-content {
+  flex: 1;
+  min-width: 0;
+  padding-right: 8px;
+}
+
+.workflow-page .workflow-item-name {
+  font-weight: 500;
+  margin-bottom: 4px;
+  color: #333;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workflow-page .workflow-item-date {
+  font-size: 0.8em;
+  color: #666;
+}
+
+.workflow-page .delete-button {
+  padding: 4px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.workflow-page .delete-button:hover {
+  opacity: 1;
+}
+
+.workflow-page .delete-button img.icon {
+  width: 16px;
+  height: 16px;
+}
+
+.workflow-page .workflow-detail {
+  flex: 1;
+  padding: 16px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: white;
+}
+
+.workflow-page .empty-state {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  color: #666;
+  text-align: center;
+  padding: 20px;
+}
+
+.workflow-page .error-message {
+  padding: 12px;
+  margin: 8px;
+  background: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+  border-radius: 4px;
+}
+
+.workflow-page .loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  font-size: 1.2em;
+  color: #666;
+}
+
+/* Ensure proper box sizing */
+.workflow-page * {
+  box-sizing: border-box;
+}
+
+/* Fix for Safari flexbox issues */
+.workflow-page .container > * {
+  height: 100%;
+}
