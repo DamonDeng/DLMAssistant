@@ -24,7 +24,6 @@ export const WorkflowList: React.FC<WorkflowListProps> = ({
     <div className="workflow-list">
       <div className="list-header">
         <h2>Workflows</h2>
-        <button onClick={onNewWorkflow}>New Workflow</button>
       </div>
       <div className="list-content">
         {visibleWorkflows.map((workflow) => (
@@ -53,6 +52,9 @@ export const WorkflowList: React.FC<WorkflowListProps> = ({
             <p>No workflows yet. Create one to get started.</p>
           </div>
         )}
+      </div>
+      <div className="new-workflow-button-container">
+        <button className="new-workflow-button" onClick={onNewWorkflow}>New Workflow</button>
       </div>
     </div>
   );
